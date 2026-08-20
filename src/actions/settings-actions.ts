@@ -17,12 +17,8 @@ export type SettingsActionResult = {
   message: string;
 };
 
-export async function updateAppearance({
-  theme,
-}: {
-  theme: AppearanceTheme;
-}): Promise<SettingsActionResult> {
-  const parsed = appearanceSchema.safeParse({ theme });
+export async function updateAppearance(input: unknown): Promise<SettingsActionResult> {
+  const parsed = appearanceSchema.safeParse(input);
 
   if (!parsed.success) {
     return {

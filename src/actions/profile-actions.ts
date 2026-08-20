@@ -15,12 +15,8 @@ export type ProfileActionResult = {
   message: string;
 };
 
-export async function updateProfile({
-  displayName,
-}: {
-  displayName: string;
-}): Promise<ProfileActionResult> {
-  const parsed = updateProfileSchema.safeParse({ displayName });
+export async function updateProfile(input: unknown): Promise<ProfileActionResult> {
+  const parsed = updateProfileSchema.safeParse(input);
 
   if (!parsed.success) {
     return {
