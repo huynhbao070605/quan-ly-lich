@@ -87,7 +87,7 @@ create table public.task_reminders (
 create table public.task_recurrences (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  root_task_id uuid not null references public.tasks(id) on delete cascade,
+  root_task_id uuid references public.tasks(id) on delete set null,
   frequency public.recurrence_frequency not null,
   interval integer not null default 1 check (interval >= 1),
   weekdays smallint[],
