@@ -1,6 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import {
@@ -9,7 +8,7 @@ import {
   signUpSchema,
 } from "@/lib/validation/auth";
 
-type AuthActionResult = {
+export type AuthActionResult = {
   ok: boolean;
   message: string;
 };
@@ -18,12 +17,14 @@ function formDataToObject(formData: FormData) {
   return Object.fromEntries(formData.entries());
 }
 
-async function getCallbackUrl() {
-  const headerList = await headers();
-  const host = headerList.get("x-forwarded-host") ?? headerList.get("host");
-  const protocol = headerList.get("x-forwarded-proto") ?? "http";
+function getCallbackUrl() {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
-  return host ? `${protocol}://${host}/auth/callback` : undefined;
+  if (!appUrl) {
+    throw new Error("NEXT_PUBLIC_APP_URL must be configured");
+  }
+
+  return new URL("/auth/callback", appUrl).toString();
 }
 
 export async function signUpWithEmail(formData: FormData): Promise<AuthActionResult> {
@@ -42,6 +43,7 @@ export async function signUpWithEmail(formData: FormData): Promise<AuthActionRes
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.displayName },
+      emailRedirectTo: getCallbackUrl(),
     },
   });
 
@@ -86,7 +88,7 @@ export async function signInWithGoogle(): Promise<AuthActionResult> {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: await getCallbackUrl(),
+      redirectTo: getCallbackUrl(),
     },
   });
 
@@ -128,7 +130,7 @@ export async function requestPasswordReset(
 
   const supabase = await createServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: await getCallbackUrl(),
+    redirectTo: getCallbackUrl(),
   });
 
   if (error) {
