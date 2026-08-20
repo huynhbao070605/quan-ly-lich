@@ -8,5 +8,6 @@ describe("Supabase environment contract", () => {
     expect(text).toContain("NEXT_PUBLIC_SUPABASE_URL=");
     expect(text).toContain("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=");
     expect(text).toContain("SUPABASE_SERVICE_ROLE_KEY=");
+    expect(text).toContain("NEXT_PUBLIC_APP_URL=");
   });
 });

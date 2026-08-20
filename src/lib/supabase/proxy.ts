@@ -25,7 +25,10 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/app") && !user) {
+  const isAppRoute =
+    request.nextUrl.pathname === "/app" || request.nextUrl.pathname.startsWith("/app/");
+
+  if (isAppRoute && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dang-nhap";
     return NextResponse.redirect(url);
