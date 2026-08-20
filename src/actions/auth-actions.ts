@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createServerClient } from "@/lib/supabase/server";
 import {
   passwordResetSchema,
+  passwordUpdateSchema,
   signInSchema,
   signUpSchema,
 } from "@/lib/validation/auth";
@@ -25,6 +26,12 @@ function getCallbackUrl() {
   }
 
   return new URL("/auth/callback", appUrl).toString();
+}
+
+function getPasswordRecoveryCallbackUrl() {
+  const callbackUrl = new URL(getCallbackUrl());
+  callbackUrl.searchParams.set("type", "recovery");
+  return callbackUrl.toString();
 }
 
 export async function signUpWithEmail(formData: FormData): Promise<AuthActionResult> {
@@ -130,7 +137,7 @@ export async function requestPasswordReset(
 
   const supabase = await createServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: getCallbackUrl(),
+    redirectTo: getPasswordRecoveryCallbackUrl(),
   });
 
   if (error) {
@@ -143,5 +150,31 @@ export async function requestPasswordReset(
   return {
     ok: true,
     message: "Email đặt lại mật khẩu đã được gửi.",
+  };
+}
+
+export async function updatePassword(formData: FormData): Promise<AuthActionResult> {
+  const parsed = passwordUpdateSchema.safeParse(formDataToObject(formData));
+
+  if (!parsed.success) {
+    return {
+      ok: false,
+      message: "Mật khẩu mới phải có từ 8 đến 128 ký tự.",
+    };
+  }
+
+  const supabase = await createServerClient();
+  const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
+
+  if (error) {
+    return {
+      ok: false,
+      message: "Không thể cập nhật mật khẩu. Vui lòng thử lại sau.",
+    };
+  }
+
+  return {
+    ok: true,
+    message: "Mật khẩu đã được cập nhật. Bạn có thể đăng nhập.",
   };
 }

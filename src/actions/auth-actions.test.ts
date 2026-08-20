@@ -33,6 +33,7 @@ function createAuthClient(overrides = {}) {
     }),
     signOut: vi.fn().mockResolvedValue({ error: null }),
     resetPasswordForEmail: vi.fn().mockResolvedValue({ error: null }),
+    updateUser: vi.fn().mockResolvedValue({ error: null }),
     ...overrides,
   };
 }
@@ -134,7 +135,7 @@ describe("authentication server actions", () => {
     expect(mocks.createServerClient).not.toHaveBeenCalled();
   });
 
-  test("sends password reset links through the canonical callback URL", async () => {
+  test("sends password reset links through the recovery callback URL", async () => {
     const auth = createAuthClient();
     mocks.createServerClient.mockResolvedValue({ auth });
 
@@ -145,7 +146,28 @@ describe("authentication server actions", () => {
       message: "Email đặt lại mật khẩu đã được gửi.",
     });
     expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("an@example.com", {
-      redirectTo: callbackUrl,
+      redirectTo: `${callbackUrl}?type=recovery`,
     });
+  });
+
+  test("updates the authenticated user's password after password recovery", async () => {
+    const auth = createAuthClient();
+    mocks.createServerClient.mockResolvedValue({ auth });
+    const authActions = await import("./auth-actions");
+    const updatePassword = (
+      authActions as unknown as {
+        updatePassword?: (formData: FormData) => Promise<{ ok: boolean; message: string }>;
+      }
+    ).updatePassword;
+
+    expect(updatePassword).toBeTypeOf("function");
+
+    const result = await updatePassword?.(formData({ password: "87654321" }));
+
+    expect(result).toEqual({
+      ok: true,
+      message: "Mật khẩu đã được cập nhật. Bạn có thể đăng nhập.",
+    });
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: "87654321" });
   });
 });

@@ -14,3 +14,7 @@ export const signInSchema = z.object({
 export const passwordResetSchema = z.object({
   email: z.string().email(),
 });
+
+export const passwordUpdateSchema = z.object({
+  password: z.string().min(8).max(128),
+});
