@@ -48,6 +48,7 @@ set local role authenticated;
 do $$
 declare
   task_a_id uuid;
+  recurrence_b_id uuid;
 begin
   insert into public.tasks (user_id, title)
   values ('11111111-1111-1111-1111-111111111111', 'Task of user A')
@@ -89,6 +90,26 @@ begin
   exception
     when insufficient_privilege then null;
   end;
+
+  begin
+    insert into public.task_recurrences (user_id, root_task_id, frequency)
+    values (
+      '22222222-2222-2222-2222-222222222222',
+      task_a_id,
+      'DAILY'
+    );
+    raise exception 'User B must not be able to link their recurrence to user A task.';
+  exception
+    when insufficient_privilege then null;
+  end;
+
+  insert into public.task_recurrences (user_id, root_task_id, frequency)
+  values ('22222222-2222-2222-2222-222222222222', null, 'DAILY')
+  returning id into recurrence_b_id;
+
+  if recurrence_b_id is null then
+    raise exception 'User B must be able to retain an owned recurrence without a root task.';
+  end if;
 end;
 $$;
 

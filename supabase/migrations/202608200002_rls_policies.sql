@@ -42,8 +42,30 @@ create policy "task_reminders_owner" on public.task_reminders
 create policy "task_recurrences_owner" on public.task_recurrences
   for all
   to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+  using (
+    (select auth.uid()) = user_id
+    and (
+      root_task_id is null
+      or exists (
+        select 1
+        from public.tasks
+        where tasks.id = task_recurrences.root_task_id
+          and (select auth.uid()) = tasks.user_id
+      )
+    )
+  )
+  with check (
+    (select auth.uid()) = user_id
+    and (
+      root_task_id is null
+      or exists (
+        select 1
+        from public.tasks
+        where tasks.id = task_recurrences.root_task_id
+          and (select auth.uid()) = tasks.user_id
+      )
+    )
+  );
 
 create policy "notifications_owner" on public.notifications
   for all
@@ -93,28 +115,6 @@ create policy "subtasks_task_owner" on public.subtasks
       select 1
       from public.tasks
       where tasks.id = subtasks.task_id
-        and (select auth.uid()) = tasks.user_id
-    )
-  );
-
-create policy "task_recurrences_task_owner" on public.task_recurrences
-  for all
-  to authenticated
-  using (
-    root_task_id is null
-    or exists (
-      select 1
-      from public.tasks
-      where tasks.id = task_recurrences.root_task_id
-        and (select auth.uid()) = tasks.user_id
-    )
-  )
-  with check (
-    root_task_id is null
-    or exists (
-      select 1
-      from public.tasks
-      where tasks.id = task_recurrences.root_task_id
         and (select auth.uid()) = tasks.user_id
     )
   );
