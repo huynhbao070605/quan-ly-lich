@@ -13,6 +13,7 @@ type SupabaseQueryBuilder<T> = {
   delete(): SupabaseQueryBuilder<T>;
   eq(column: string, value: string): SupabaseQueryBuilder<T>;
   insert(value: Record<string, unknown>): SupabaseQueryBuilder<T>;
+  maybeSingle(): SupabaseSingleResult<T>;
   select(columns?: string): SupabaseQueryBuilder<T>;
   single(): SupabaseSingleResult<T>;
 } & PromiseLike<SupabaseDeleteResult>;
@@ -61,13 +62,13 @@ export async function deleteTagRecord(
   userId: string,
   tagId: string,
 ): Promise<void> {
-  const { error } = await supabase
+  const result = await supabase
     .from("tags")
     .delete()
     .eq("user_id", userId)
-    .eq("id", tagId);
+    .eq("id", tagId)
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
+  assertSingle(result);
 }

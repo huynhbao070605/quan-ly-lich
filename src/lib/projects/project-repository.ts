@@ -30,6 +30,7 @@ type SupabaseQueryBuilder<T> = {
   eq(column: string, value: string | boolean): SupabaseQueryBuilder<T>;
   insert(value: Record<string, unknown>): SupabaseQueryBuilder<T>;
   is(column: string, value: null): SupabaseQueryBuilder<T>;
+  maybeSingle(): SupabaseSingleResult<T>;
   order(column: string, options?: { ascending?: boolean }): SupabaseQueryBuilder<T>;
   select(columns?: string): SupabaseQueryBuilder<T>;
   single(): SupabaseSingleResult<T>;
@@ -99,15 +100,15 @@ export async function deleteProjectRecord(
   userId: string,
   projectId: string,
 ): Promise<void> {
-  const { error } = await supabase
+  const result = await supabase
     .from("projects")
     .delete()
     .eq("user_id", userId)
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
-    throw error;
-  }
+  assertSingle(result);
 }
 
 export async function listProjectSummaries(

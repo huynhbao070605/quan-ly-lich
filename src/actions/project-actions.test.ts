@@ -107,4 +107,15 @@ describe("project actions", () => {
       projectId,
     );
   });
+
+  test("deleteProject reports not found when no scoped project row is deleted", async () => {
+    mocks.deleteProjectRecord.mockRejectedValue(new Error("Project not found."));
+
+    const result = await deleteProject(projectId);
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Không tìm thấy dự án.",
+    });
+  });
 });
