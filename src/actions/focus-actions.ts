@@ -132,8 +132,10 @@ export async function reorderFocus(
       parsedDate.data,
     );
     const existingTaskIdSet = new Set(existingTaskIds);
+    const submittedTaskIdSet = new Set(parsedTaskIds.data);
     const sameFocusSet =
       parsedTaskIds.data.length === existingTaskIds.length &&
+      submittedTaskIdSet.size === parsedTaskIds.data.length &&
       parsedTaskIds.data.every((taskId) => existingTaskIdSet.has(taskId));
 
     if (!sameFocusSet) {

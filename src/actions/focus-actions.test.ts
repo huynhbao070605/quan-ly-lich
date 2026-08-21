@@ -139,4 +139,16 @@ describe("focus actions", () => {
     });
     expect(mocks.updateTaskRecord).not.toHaveBeenCalled();
   });
+
+  test("reorderFocus rejects duplicate task IDs before updating", async () => {
+    const focusedTaskId = "00000000-0000-4000-8000-000000000011";
+
+    const result = await reorderFocus(focusDate, [focusedTaskId, focusedTaskId]);
+
+    expect(result).toEqual({
+      ok: false,
+      message: "\u0042\u1ea1n ch\u1ec9 c\u00f3 th\u1ec3 ch\u1ecdn t\u1ed1i \u0111a 3 c\u00f4ng vi\u1ec7c tr\u1ecdng t\u00e2m m\u1ed7i ng\u00e0y.",
+    });
+    expect(mocks.updateTaskRecord).not.toHaveBeenCalled();
+  });
 });
