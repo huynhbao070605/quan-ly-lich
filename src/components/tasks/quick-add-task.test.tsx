@@ -1,0 +1,62 @@
+import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, describe, expect, test, vi } from "vitest";
+
+import { QuickAddTask } from "./quick-add-task";
+
+describe("QuickAddTask", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  test("shows the compact fields before advanced options are expanded", () => {
+    render(<QuickAddTask onCreate={vi.fn()} />);
+
+    expect(screen.getByLabelText("Tên công việc")).toBeVisible();
+    expect(screen.getByLabelText("Ngày")).toBeVisible();
+    expect(screen.getByLabelText("Ưu tiên")).toBeVisible();
+    expect(screen.getByLabelText("Dự án")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Thêm tùy chọn" })).toBeVisible();
+    expect(screen.queryByLabelText("Lặp lại")).not.toBeInTheDocument();
+  });
+
+  test("reveals advanced fields after expanding options", async () => {
+    const user = userEvent.setup();
+    render(<QuickAddTask onCreate={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
+
+    expect(screen.getByLabelText("Lặp lại")).toBeVisible();
+    expect(screen.getByLabelText("Mô tả")).toBeVisible();
+  });
+
+  test("submits the title with default priority on Enter outside IME composition", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<QuickAddTask onCreate={onCreate} />);
+
+    await user.type(screen.getByLabelText("Tên công việc"), "Nộp báo cáo{Enter}");
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Nộp báo cáo",
+        priority: "MEDIUM",
+      }),
+    );
+  });
+
+  test("does not submit Enter while IME composition is active", async () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<QuickAddTask onCreate={onCreate} />);
+    const titleInput = screen.getByLabelText("Tên công việc");
+
+    titleInput.dispatchEvent(
+      new CompositionEvent("compositionstart", { bubbles: true }),
+    );
+    titleInput.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }),
+    );
+
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+});
