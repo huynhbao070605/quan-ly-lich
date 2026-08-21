@@ -78,6 +78,12 @@ function toTaskRow(
   if ("eisenhowerOverride" in input && input.eisenhowerOverride !== undefined) {
     row.eisenhower_override = input.eisenhowerOverride;
   }
+  if ("focusDate" in input && input.focusDate !== undefined) {
+    row.focus_date = input.focusDate;
+  }
+  if ("focusPosition" in input && input.focusPosition !== undefined) {
+    row.focus_position = input.focusPosition;
+  }
   if ("completedAt" in input && input.completedAt !== undefined) {
     row.completed_at = input.completedAt;
   }

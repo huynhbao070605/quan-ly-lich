@@ -25,6 +25,8 @@ const taskFieldsSchema = z.object({
   important: z.boolean().optional(),
   urgent: z.boolean().optional(),
   eisenhowerOverride: z.boolean().optional(),
+  focusDate: z.string().date().nullable().optional(),
+  focusPosition: z.number().int().min(1).max(3).nullable().optional(),
 });
 
 export const createTaskSchema = taskFieldsSchema;
@@ -43,6 +45,8 @@ export const taskFilterSchema = z.object({
   important: z.boolean().optional(),
   urgent: z.boolean().optional(),
   eisenhowerOverride: z.boolean().optional(),
+  focusDate: z.string().date().nullable().optional(),
+  focusPosition: z.number().int().min(1).max(3).nullable().optional(),
 });
 
 export type TaskStatus = z.infer<typeof taskStatusSchema>;
