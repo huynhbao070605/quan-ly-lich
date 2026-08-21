@@ -216,8 +216,28 @@ function QuadrantColumn({
 }
 
 export function EisenhowerBoard({ tasks }: EisenhowerBoardProps) {
-  const initialGroups = useMemo(() => createGroups(tasks), [tasks]);
-  const [groups, setGroups] = useState<QuadrantGroups>(initialGroups);
+  const sourceKey = useMemo(
+    () =>
+      tasks
+        .map((task) =>
+          [
+            task.id,
+            task.status,
+            task.important,
+            task.urgent,
+            task.eisenhowerOverride,
+          ].join(":"),
+        )
+        .join("|"),
+    [tasks],
+  );
+  const sourceGroups = useMemo(() => createGroups(tasks), [tasks]);
+  const [optimisticGroups, setOptimisticGroups] = useState<{
+    groups: QuadrantGroups;
+    sourceKey: string;
+  } | null>(null);
+  const groups =
+    optimisticGroups?.sourceKey === sourceKey ? optimisticGroups.groups : sourceGroups;
   const [activeQuadrant, setActiveQuadrant] = useState<EisenhowerQuadrant>("DO_NOW");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -259,12 +279,12 @@ export function EisenhowerBoard({ tasks }: EisenhowerBoardProps) {
       [targetQuadrant]: [...groups[targetQuadrant], movedTask],
     };
 
-    setGroups(nextGroups);
+    setOptimisticGroups({ groups: nextGroups, sourceKey });
     setError(null);
     startTransition(() => {
       void overrideEisenhower(task.id, targetQuadrant).then((result) => {
         if (!result.ok) {
-          setGroups(previousGroups);
+          setOptimisticGroups({ groups: previousGroups, sourceKey });
           setError("Không thể cập nhật Eisenhower. Vui lòng thử lại.");
         }
       });
