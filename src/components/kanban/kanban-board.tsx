@@ -15,7 +15,7 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 
-import { moveTask, reorderColumn } from "@/actions/kanban-actions";
+import { moveTaskBetweenColumns, reorderColumn } from "@/actions/kanban-actions";
 import { TASK_STATUS_LABELS } from "@/lib/domain/constants";
 import type { TaskStatus } from "@/lib/validation/task";
 
@@ -81,21 +81,17 @@ export function KanbanBoard({ tasks }: KanbanBoardProps) {
     targetStatus: TaskStatus,
   ) {
     const targetTaskIds = nextColumns[targetStatus].map((item) => item.id);
-    const targetPosition = nextColumns[targetStatus].findIndex((item) => item.id === task.id);
-    const moveResult =
+    const result =
       sourceStatus === targetStatus
-        ? { ok: true as const, data: null }
-        : await moveTask(task.id, targetStatus, targetPosition);
-    const targetOrderResult = await reorderColumn(targetStatus, targetTaskIds);
-    const sourceOrderResult =
-      sourceStatus === targetStatus
-        ? { ok: true as const, data: null }
-        : await reorderColumn(
-            sourceStatus,
+        ? await reorderColumn(targetStatus, targetTaskIds)
+        : await moveTaskBetweenColumns(
+            task.id,
+            targetStatus,
             nextColumns[sourceStatus].map((item) => item.id),
+            targetTaskIds,
           );
 
-    if (!moveResult.ok || !targetOrderResult.ok || !sourceOrderResult.ok) {
+    if (!result.ok) {
       setColumns(previousColumns);
       setError("Không thể cập nhật công việc. Vui lòng thử lại.");
       return;

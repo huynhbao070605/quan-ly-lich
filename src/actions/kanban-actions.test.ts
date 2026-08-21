@@ -12,7 +12,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
-import { moveTask, reorderColumn } from "./kanban-actions";
+import { moveTask, moveTaskBetweenColumns, reorderColumn } from "./kanban-actions";
 
 const taskId = "00000000-0000-4000-8000-000000000010";
 
@@ -158,5 +158,34 @@ describe("kanban actions", () => {
       ok: false,
       message: "Không thể cập nhật công việc. Vui lòng thử lại.",
     });
+  });
+
+  test("moveTaskBetweenColumns persists the whole cross-column drag with one RPC", async () => {
+    const sourceTaskIds = ["00000000-0000-4000-8000-000000000011"];
+    const targetTaskIds = [
+      "00000000-0000-4000-8000-000000000012",
+      taskId,
+      "00000000-0000-4000-8000-000000000013",
+    ];
+    const { supabase } = createRpcClient();
+    mocks.createServerClient.mockResolvedValue(supabase);
+
+    const result = await moveTaskBetweenColumns(
+      taskId,
+      "DONE",
+      sourceTaskIds,
+      targetTaskIds,
+    );
+
+    expect(result).toEqual({ ok: true, data: null });
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledWith("move_kanban_task", {
+      p_task_id: taskId,
+      p_target_status: "DONE",
+      p_source_task_ids: sourceTaskIds,
+      p_target_task_ids: targetTaskIds,
+    });
+    expect(mocks.requireUser).toHaveBeenCalled();
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/app/kanban");
   });
 });

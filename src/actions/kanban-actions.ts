@@ -43,6 +43,15 @@ type KanbanSupabaseClient = {
     fn: "reorder_kanban_column",
     args: { p_status: TaskStatus; p_task_ids: string[] },
   ): SupabaseRpcResult;
+  rpc(
+    fn: "move_kanban_task",
+    args: {
+      p_task_id: string;
+      p_target_status: TaskStatus;
+      p_source_task_ids: string[];
+      p_target_task_ids: string[];
+    },
+  ): SupabaseRpcResult;
 };
 
 const taskIdSchema = z.uuid();
@@ -50,6 +59,12 @@ const positionSchema = z.number().finite();
 const reorderSchema = z.object({
   status: taskStatusSchema,
   taskIds: z.array(taskIdSchema),
+});
+const crossColumnMoveSchema = z.object({
+  sourceTaskIds: z.array(taskIdSchema),
+  targetStatus: taskStatusSchema,
+  targetTaskIds: z.array(taskIdSchema),
+  taskId: taskIdSchema,
 });
 
 function toKanbanClient(): Promise<KanbanSupabaseClient> {
@@ -121,6 +136,46 @@ export async function reorderColumn(
     const { error } = await supabase.rpc("reorder_kanban_column", {
       p_status: parsed.data.status,
       p_task_ids: parsed.data.taskIds,
+    });
+
+    if (error) {
+      return failure();
+    }
+
+    revalidatePath("/app/kanban");
+    revalidatePath("/app/cong-viec");
+
+    return { ok: true, data: null };
+  } catch {
+    return failure();
+  }
+}
+
+export async function moveTaskBetweenColumns(
+  taskId: string,
+  targetStatus: TaskStatus,
+  sourceTaskIds: string[],
+  targetTaskIds: string[],
+): Promise<KanbanActionResult<null>> {
+  const parsed = crossColumnMoveSchema.safeParse({
+    sourceTaskIds,
+    targetStatus,
+    targetTaskIds,
+    taskId,
+  });
+
+  if (!parsed.success) {
+    return failure("Thông tin Kanban không hợp lệ.");
+  }
+
+  try {
+    await requireUser();
+    const supabase = await toKanbanClient();
+    const { error } = await supabase.rpc("move_kanban_task", {
+      p_task_id: parsed.data.taskId,
+      p_target_status: parsed.data.targetStatus,
+      p_source_task_ids: parsed.data.sourceTaskIds,
+      p_target_task_ids: parsed.data.targetTaskIds,
     });
 
     if (error) {
