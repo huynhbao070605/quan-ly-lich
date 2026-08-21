@@ -44,6 +44,7 @@ type SupabaseQueryBuilder<T> = {
 
 export type TaskSupabaseClient = {
   from(table: "tasks"): SupabaseQueryBuilder<TaskRecord>;
+  from(table: "projects"): SupabaseQueryBuilder<{ id: string }>;
 };
 
 export type TaskMutationInput = CreateTaskInput | UpdateTaskInput;
@@ -96,11 +97,38 @@ function assertTaskResult<T>(result: { data: T | null; error: Error | null }): T
   return result.data;
 }
 
+async function assertOwnedProjectIfPresent(
+  supabase: TaskSupabaseClient,
+  userId: string,
+  projectId: string | null | undefined,
+): Promise<void> {
+  if (projectId === undefined || projectId === null) {
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("id", projectId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  if (data === null) {
+    throw new Error("Project not found.");
+  }
+}
+
 export async function createTaskRecord(
   supabase: TaskSupabaseClient,
   userId: string,
   input: CreateTaskInput,
 ): Promise<TaskRecord> {
+  await assertOwnedProjectIfPresent(supabase, userId, input.projectId);
+
   const result = await supabase
     .from("tasks")
     .insert({ ...toTaskRow(input), user_id: userId })
@@ -116,6 +144,8 @@ export async function updateTaskRecord(
   taskId: string,
   input: TaskRepositoryUpdateInput,
 ): Promise<TaskRecord> {
+  await assertOwnedProjectIfPresent(supabase, userId, input.projectId);
+
   const result = await supabase
     .from("tasks")
     .update(toTaskRow(input))

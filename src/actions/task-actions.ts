@@ -48,16 +48,23 @@ function parseDate(value: string | null): Date | null {
 
 function buildAutoEisenhowerUpdate(
   existingTask: TaskRecord,
-  input: UpdateTaskInput,
+  input: TaskRepositoryUpdateInput,
 ): Pick<UpdateTaskInput, "important" | "urgent"> {
-  if (existingTask.eisenhower_override) {
+  if (input.eisenhowerOverride === true) {
     return {};
+  }
+
+  if (existingTask.eisenhower_override) {
+    if (input.eisenhowerOverride !== false) {
+      return {};
+    }
   }
 
   if (
     input.priority === undefined &&
     input.dueAt === undefined &&
-    input.status === undefined
+    input.status === undefined &&
+    input.eisenhowerOverride !== false
   ) {
     return {};
   }
@@ -76,6 +83,22 @@ function buildStatusUpdate(status: TaskStatus): TaskRepositoryUpdateInput {
   return {
     status,
     completedAt: status === "DONE" ? new Date().toISOString() : null,
+  };
+}
+
+function buildRepositoryUpdate(
+  existingTask: TaskRecord,
+  input: UpdateTaskInput,
+): TaskRepositoryUpdateInput {
+  const statusUpdate = input.status === undefined ? {} : buildStatusUpdate(input.status);
+  const update = {
+    ...input,
+    ...statusUpdate,
+  };
+
+  return {
+    ...update,
+    ...buildAutoEisenhowerUpdate(existingTask, update),
   };
 }
 
@@ -142,10 +165,12 @@ export async function updateTask(
       };
     }
 
-    const data = await updateTaskRecord(supabase, user.id, parsedTaskId.data, {
-      ...parsed.data,
-      ...buildAutoEisenhowerUpdate(existingTask, parsed.data),
-    });
+    const data = await updateTaskRecord(
+      supabase,
+      user.id,
+      parsedTaskId.data,
+      buildRepositoryUpdate(existingTask, parsed.data),
+    );
 
     revalidatePath("/app/cong-viec");
 
@@ -204,11 +229,12 @@ export async function setTaskStatus(
       };
     }
 
-    const statusUpdate = buildStatusUpdate(parsedStatus.data);
-    const data = await updateTaskRecord(supabase, user.id, parsedTaskId.data, {
-      ...statusUpdate,
-      ...buildAutoEisenhowerUpdate(existingTask, statusUpdate),
-    });
+    const data = await updateTaskRecord(
+      supabase,
+      user.id,
+      parsedTaskId.data,
+      buildRepositoryUpdate(existingTask, { status: parsedStatus.data }),
+    );
 
     revalidatePath("/app/cong-viec");
 

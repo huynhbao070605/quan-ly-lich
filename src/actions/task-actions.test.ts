@@ -106,6 +106,43 @@ describe("task actions", () => {
     );
   });
 
+  test("updateTask sets completed_at when status changes to DONE", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-21T09:45:00.000Z"));
+
+    await updateTask(taskId, { status: "DONE" });
+
+    expect(mocks.updateTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      taskId,
+      expect.objectContaining({
+        status: "DONE",
+        completedAt: "2026-08-21T09:45:00.000Z",
+      }),
+    );
+  });
+
+  test("updateTask clears completed_at when status moves out of DONE", async () => {
+    mocks.getTaskRecordById.mockResolvedValue({
+      ...existingTask,
+      status: "DONE",
+      completed_at: "2026-08-21T09:30:00.000Z",
+    });
+
+    await updateTask(taskId, { status: "IN_PROGRESS" });
+
+    expect(mocks.updateTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      taskId,
+      expect.objectContaining({
+        status: "IN_PROGRESS",
+        completedAt: null,
+      }),
+    );
+  });
+
   test("updateTask recalculates Eisenhower when override is false", async () => {
     await updateTask(taskId, {
       priority: "HIGH",
@@ -144,6 +181,53 @@ describe("task actions", () => {
       expect.not.objectContaining({
         important: true,
         urgent: true,
+      }),
+    );
+  });
+
+  test("updateTask recalculates Eisenhower when manual override is reset", async () => {
+    mocks.getTaskRecordById.mockResolvedValue({
+      ...existingTask,
+      priority: "HIGH",
+      due_at: "2026-08-24T08:00:00.000Z",
+      important: false,
+      urgent: false,
+      eisenhower_override: true,
+    });
+
+    await updateTask(taskId, {
+      eisenhowerOverride: false,
+    });
+
+    expect(mocks.updateTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      taskId,
+      expect.objectContaining({
+        eisenhowerOverride: false,
+        important: true,
+        urgent: false,
+      }),
+    );
+  });
+
+  test("updateTask keeps explicit manual flags when enabling override in the same update", async () => {
+    await updateTask(taskId, {
+      priority: "URGENT",
+      important: false,
+      urgent: false,
+      eisenhowerOverride: true,
+    });
+
+    expect(mocks.updateTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      taskId,
+      expect.objectContaining({
+        priority: "URGENT",
+        important: false,
+        urgent: false,
+        eisenhowerOverride: true,
       }),
     );
   });
