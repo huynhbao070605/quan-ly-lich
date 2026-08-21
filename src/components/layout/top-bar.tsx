@@ -1,4 +1,6 @@
-import { Bell, Search } from "lucide-react";
+import { Bell } from "lucide-react";
+
+import { GlobalSearch } from "@/components/search/global-search";
 
 type TopBarProps = {
   email: string;
@@ -9,18 +11,7 @@ export function TopBar({ email }: TopBarProps) {
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
-      <label className="relative max-w-xl flex-1">
-        <span className="sr-only">Tìm công việc</span>
-        <Search
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400"
-        />
-        <input
-          type="search"
-          placeholder="Tìm công việc..."
-          className="h-10 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm text-slate-950 placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-100"
-        />
-      </label>
+      <GlobalSearch />
       <button
         type="button"
         aria-label="Thông báo"
