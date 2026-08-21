@@ -94,7 +94,7 @@ export function buildListTasksQuery(
   addOperation(
     operations,
     filters.tagIds && filters.tagIds.length > 0
-      ? { type: "in", column: "task_tags.tag_id", values: filters.tagIds }
+      ? { type: "in", column: "matching_task_tags.tag_id", values: filters.tagIds }
       : undefined,
   );
   addOperation(operations, filters.query ? textSearchOperation(filters.query) : undefined);
@@ -157,7 +157,7 @@ export function listTasks<T>(
 ) {
   const taskTags =
     filters.tagIds && filters.tagIds.length > 0
-      ? "task_tags!inner(tags(*))"
+      ? "matching_task_tags:task_tags!inner(tags(*)), task_tags(tags(*))"
       : "task_tags(tags(*))";
 
   return applyTaskQueryOperations(

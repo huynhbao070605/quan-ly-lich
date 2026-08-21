@@ -27,7 +27,7 @@ describe("TaskDetailSheet", () => {
 
   test("submits controlled task edits through the update callback", async () => {
     const user = userEvent.setup();
-    const onUpdate = vi.fn().mockResolvedValue(undefined);
+    const onUpdate = vi.fn().mockResolvedValue(true);
     const { rerender } = render(
       <TaskDetailSheet
         onClose={vi.fn()}
@@ -94,7 +94,7 @@ describe("TaskDetailSheet", () => {
       <TaskDetailSheet
         onAddSubtask={onAddSubtask}
         onClose={vi.fn()}
-        onUpdate={vi.fn()}
+        onUpdate={vi.fn().mockResolvedValue(true)}
         open
         task={task}
       />,
@@ -152,7 +152,7 @@ describe("TaskDetailSheet", () => {
       <TaskDetailSheet
         onClose={vi.fn()}
         onEisenhowerChange={onEisenhowerChange}
-        onUpdate={vi.fn()}
+        onUpdate={vi.fn().mockResolvedValue(true)}
         open
         task={task}
       />,

@@ -102,7 +102,7 @@ export function TasksWorkspace({
   }
 
   async function handleUpdate(taskId: string, input: UpdateTaskInput) {
-    await refreshOnSuccess(updateTask(taskId, input));
+    return refreshOnSuccess(updateTask(taskId, input));
   }
 
   async function handleDelete(taskId: string) {

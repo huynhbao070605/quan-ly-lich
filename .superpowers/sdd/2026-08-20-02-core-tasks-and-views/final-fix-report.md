@@ -53,3 +53,22 @@ The reported edge case was valid. Removing position 2 from Focus positions 1, 2,
 - Focused verification: 7 files passed, 13 tests passed; the static Focus compaction audit passed.
 - Full verification: 47 files passed, 167 tests passed; typecheck, lint, production build, schema static audit, RLS static audit, and profile bootstrap static audit all passed.
 - Deferred: the follow-up migration and RPC behavior have static coverage only. Live migration, RPC, and cross-user RLS verification remain DEFERRED; no Docker or local Supabase runtime was started.
+
+## Exception Final-Fix Wave
+
+### RED Evidence
+
+- `corepack pnpm test:run -- src/lib/tasks/task-queries.test.ts src/components/tasks/tasks-workspace.test.tsx` exited 1. The tag-filter query test received only `task_tags!inner(tags(*))` instead of a separate inner filter alias plus the complete `task_tags(tags(*))` relation. The failed-save test could not find the workspace error after a successful Eisenhower follow-up cleared it.
+
+### Implementation Summary
+
+- Tag-filtered task queries now use `matching_task_tags:task_tags!inner(...)` only to restrict the returned tasks, while the unaliased `task_tags(tags(*))` relation remains complete for the Task Detail mapping and save payload.
+- Task Detail now requires the primary update callback to return a boolean. `TasksWorkspace` returns its action result, and Task Detail aborts the Eisenhower follow-up when that primary save fails, leaving its error visible.
+
+### GREEN Evidence
+
+- `corepack pnpm exec vitest run src/lib/tasks/task-queries.test.ts src/components/tasks/task-detail-sheet.test.tsx src/components/tasks/tasks-workspace.test.tsx --no-file-parallelism`: passed, 3 files and 17 tests.
+
+### Deferred Database Verification
+
+- No migration changed in this exception wave, so no schema/RLS static audit was applicable. Live database, RPC, and cross-user RLS verification remain DEFERRED. No Docker, Podman, or local Supabase runtime command was run.

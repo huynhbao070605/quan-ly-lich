@@ -99,6 +99,27 @@ describe("TasksWorkspace", () => {
     expect(mocks.refresh).toHaveBeenCalled();
   });
 
+  test("keeps a failed task save visible and skips Eisenhower changes", async () => {
+    const user = userEvent.setup();
+    mocks.updateTask.mockResolvedValue({ ok: false, message: "Khong the luu cong viec." });
+
+    render(
+      <TasksWorkspace
+        initialTaskId={task.id}
+        projects={[]}
+        tags={[]}
+        tasks={[task]}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("Quan trọng"));
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("Khong the luu cong viec.");
+    expect(mocks.overrideEisenhower).not.toHaveBeenCalled();
+    expect(mocks.resetEisenhower).not.toHaveBeenCalled();
+  });
+
   test("connects the new-task and new-tag controls to server actions", async () => {
     const user = userEvent.setup();
     render(

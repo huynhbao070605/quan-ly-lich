@@ -29,7 +29,7 @@ type TaskDetailTask = {
 type TaskDetailSheetProps = {
   open: boolean;
   onClose: () => void;
-  onUpdate: (taskId: string, input: UpdateTaskInput) => Promise<void> | void;
+  onUpdate: (taskId: string, input: UpdateTaskInput) => Promise<boolean> | boolean;
   onDelete?: (taskId: string) => Promise<void> | void;
   onEisenhowerChange?: (
     taskId: string,
@@ -181,7 +181,7 @@ export function TaskDetailSheet({
 
     if (title.length === 0) return;
 
-    await onUpdate(task.id, {
+    const updated = await onUpdate(task.id, {
       title,
       description: form.description?.trim() || null,
       status: form.status,
@@ -192,6 +192,8 @@ export function TaskDetailSheet({
       allDay: form.allDay,
       tagIds: form.tagIds,
     });
+
+    if (!updated) return;
 
     if (
       onEisenhowerChange &&

@@ -61,7 +61,7 @@ describe("buildListTasksQuery", () => {
     });
     expectOperation(operations, {
       type: "in",
-      column: "task_tags.tag_id",
+      column: "matching_task_tags.tag_id",
       values: ["00000000-0000-4000-8000-000000000030"],
     });
     expectOperation(operations, {
@@ -76,7 +76,7 @@ describe("buildListTasksQuery", () => {
     });
   });
 
-  test("uses an inner task-tag embed when filtering by tag", () => {
+  test("uses a separate inner task-tag alias when filtering by tag so the full tag relation remains available", () => {
     const selected: string[] = [];
     const builder = {
       eq() { return builder; },
@@ -98,7 +98,7 @@ describe("buildListTasksQuery", () => {
     });
 
     expect(selected).toEqual([
-      "*, projects(*), task_tags!inner(tags(*)), subtasks(*)",
+      "*, projects(*), matching_task_tags:task_tags!inner(tags(*)), task_tags(tags(*)), subtasks(*)",
     ]);
   });
 
