@@ -3,7 +3,11 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
+import type { SubtaskRecord } from "@/lib/tasks/subtask-repository";
 import type { TaskPriority, TaskStatus, UpdateTaskInput } from "@/lib/validation/task";
+
+type ReminderValue = "NONE" | "AT_START" | "DAY_BEFORE";
+type RecurrenceValue = "NONE" | "DAILY" | "WEEKLY";
 
 type TaskDetailTask = {
   id: string;
@@ -28,6 +32,12 @@ type TaskDetailSheetProps = {
   task: TaskDetailTask;
   projects?: Array<{ id: string; name: string }>;
   tags?: Array<{ id: string; name: string }>;
+  subtasks?: SubtaskRecord[];
+  reminder?: ReminderValue;
+  recurrence?: RecurrenceValue;
+  onAddSubtask?: (taskId: string, title: string) => Promise<void> | void;
+  onReminderChange?: (taskId: string, value: ReminderValue) => Promise<void> | void;
+  onRecurrenceChange?: (taskId: string, value: RecurrenceValue) => Promise<void> | void;
 };
 
 type TaskDetailForm = Omit<TaskDetailTask, "id">;
@@ -77,9 +87,18 @@ export function TaskDetailSheet({
   open,
   projects = [],
   tags = [],
+  subtasks = [],
+  reminder = "NONE",
+  recurrence = "NONE",
+  onAddSubtask,
+  onReminderChange,
+  onRecurrenceChange,
   task,
 }: TaskDetailSheetProps) {
   const [form, setForm] = useState<TaskDetailForm>(() => toForm(task));
+  const [subtaskTitle, setSubtaskTitle] = useState("");
+  const [reminderValue, setReminderValue] = useState<ReminderValue>(reminder);
+  const [recurrenceValue, setRecurrenceValue] = useState<RecurrenceValue>(recurrence);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -105,6 +124,24 @@ export function TaskDetailSheet({
         ? form.tagIds.filter((id) => id !== tagId)
         : [...form.tagIds, tagId],
     );
+  }
+
+  async function addSubtask() {
+    const title = subtaskTitle.trim();
+    if (!onAddSubtask || title.length === 0) return;
+
+    await onAddSubtask(task.id, title);
+    setSubtaskTitle("");
+  }
+
+  function changeReminder(value: ReminderValue) {
+    setReminderValue(value);
+    void onReminderChange?.(task.id, value);
+  }
+
+  function changeRecurrence(value: RecurrenceValue) {
+    setRecurrenceValue(value);
+    void onRecurrenceChange?.(task.id, value);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -234,6 +271,51 @@ export function TaskDetailSheet({
             <input checked={form.allDay} onChange={(event) => updateField("allDay", event.target.checked)} type="checkbox" />
             Cả ngày
           </label>
+          <section className="space-y-3 rounded-md border border-slate-200 p-3">
+            <h3 className="text-sm font-medium text-slate-700">
+              Danh sách kiểm tra {subtasks.filter((subtask) => subtask.completed).length}/{subtasks.length}
+            </h3>
+            {subtasks.length > 0 && (
+              <ul className="divide-y divide-slate-100">
+                {subtasks.map((subtask) => (
+                  <li className="flex items-center gap-3 py-2" key={subtask.id}>
+                    <input checked={subtask.completed} className="size-4 rounded border-slate-300 text-teal-600" readOnly type="checkbox" />
+                    <span className="text-sm text-slate-800">{subtask.title}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex gap-2">
+              <label className="sr-only" htmlFor="subtask-title">Thêm mục kiểm tra</label>
+              <input
+                className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 px-3 text-sm text-slate-950"
+                id="subtask-title"
+                onChange={(event) => setSubtaskTitle(event.target.value)}
+                value={subtaskTitle}
+              />
+              <button className="inline-flex h-10 shrink-0 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50" disabled={!onAddSubtask || subtaskTitle.trim().length === 0} onClick={addSubtask} type="button">
+                Thêm mục
+              </button>
+            </div>
+          </section>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Nhắc việc</span>
+              <select className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100" disabled={!onReminderChange} onChange={(event) => changeReminder(event.target.value as ReminderValue)} value={reminderValue}>
+                <option value="NONE">Không nhắc</option>
+                <option value="AT_START">Vào giờ bắt đầu</option>
+                <option value="DAY_BEFORE">Trước hạn một ngày</option>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Lặp lại</span>
+              <select className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100" disabled={!onRecurrenceChange} onChange={(event) => changeRecurrence(event.target.value as RecurrenceValue)} value={recurrenceValue}>
+                <option value="NONE">Không lặp lại</option>
+                <option value="DAILY">Hằng ngày</option>
+                <option value="WEEKLY">Hằng tuần</option>
+              </select>
+            </label>
+          </div>
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium text-slate-700">Ma trận Eisenhower</legend>
             <div className="flex flex-wrap gap-3">

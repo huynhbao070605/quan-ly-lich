@@ -88,4 +88,62 @@ describe("TaskDetailSheet", () => {
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  test("adds a checklist item through the subtask callback", async () => {
+    const user = userEvent.setup();
+    const onAddSubtask = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <TaskDetailSheet
+        onAddSubtask={onAddSubtask}
+        onClose={vi.fn()}
+        onUpdate={vi.fn()}
+        open
+        task={task}
+      />,
+    );
+
+    await user.type(screen.getByLabelText("Thêm mục kiểm tra"), "  Kiểm tra số liệu  ");
+    await user.click(screen.getByRole("button", { name: "Thêm mục" }));
+
+    expect(onAddSubtask).toHaveBeenCalledWith(task.id, "Kiểm tra số liệu");
+  });
+
+  test("changes the reminder through its callback", async () => {
+    const user = userEvent.setup();
+    const onReminderChange = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <TaskDetailSheet
+        onReminderChange={onReminderChange}
+        onClose={vi.fn()}
+        onUpdate={vi.fn()}
+        open
+        task={task}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("Nhắc việc"), "AT_START");
+
+    expect(onReminderChange).toHaveBeenCalledWith(task.id, "AT_START");
+  });
+
+  test("changes recurrence through its callback", async () => {
+    const user = userEvent.setup();
+    const onRecurrenceChange = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <TaskDetailSheet
+        onRecurrenceChange={onRecurrenceChange}
+        onClose={vi.fn()}
+        onUpdate={vi.fn()}
+        open
+        task={task}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("Lặp lại"), "WEEKLY");
+
+    expect(onRecurrenceChange).toHaveBeenCalledWith(task.id, "WEEKLY");
+  });
 });
