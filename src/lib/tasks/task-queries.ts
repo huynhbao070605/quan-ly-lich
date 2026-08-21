@@ -1,4 +1,5 @@
 import type { TaskFilterInput, TaskPriority, TaskStatus } from "@/lib/validation/task";
+import { nextVietnamDayStartUtc, vietnamDayStartUtc } from "@/lib/domain/time";
 
 export type TaskQueryOperation =
   | { type: "eq"; column: string; value: string | boolean }
@@ -30,20 +31,6 @@ type TaskQueryBuilder<T> = {
 export type TaskQueryClient<T> = {
   from(table: "tasks"): TaskQueryBuilder<T>;
 };
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function vietnamDayStartUtc(date: Date): Date {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Ho_Chi_Minh",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const [year, month, day] = formatter.format(date).split("-").map(Number);
-
-  return new Date(Date.UTC(year, month - 1, day, -7, 0, 0, 0));
-}
 
 function addOperation(
   operations: TaskQueryOperation[],
@@ -114,7 +101,7 @@ export function buildListTasksQuery(
 
   const now = filters.now ?? new Date();
   const todayStart = vietnamDayStartUtc(now);
-  const tomorrowStart = new Date(todayStart.getTime() + DAY_MS);
+  const tomorrowStart = nextVietnamDayStartUtc(now);
 
   if (filters.today) {
     operations.push(
