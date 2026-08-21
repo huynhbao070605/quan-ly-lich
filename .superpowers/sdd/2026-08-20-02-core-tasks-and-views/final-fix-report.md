@@ -43,3 +43,13 @@
 ## Deferred Database Verification
 
 Live database migration, RPC, and cross-user RLS checks were not run because local Supabase/Docker execution is explicitly deferred for this fix wave. The new migration received static review and the required static audits only. Plan 02 must retain this DB/RLS item as DEFERRED until an approved live Supabase environment is available; this report does not claim live DB/RLS success.
+
+## Follow-up: Focus Removal Compaction
+
+The reported edge case was valid. Removing position 2 from Focus positions 1, 2, 3 left positions 1 and 3, while Daily Plan selected position `focusCount + 1` for the next task. The resulting request for position 3 conflicted with the remaining position 3 row despite only two Focus tasks being present.
+
+- RED: the enhanced `schema_static_audit.ps1` failed with `Focus removal must lock the authenticated user and focus date.` against the prior RPC definition.
+- Implementation: migration `202608210002_compact_focus_after_removal.sql` replaces `remove_task_focus`. It verifies authenticated ownership, captures the task's Focus date, acquires the existing per-user/date advisory lock, removes the task, temporarily clears the remaining rows, and restores them in prior order at dense positions `1..n`. The two-phase rewrite avoids transient unique-index conflicts during compaction.
+- Focused verification: 7 files passed, 13 tests passed; the static Focus compaction audit passed.
+- Full verification: 47 files passed, 167 tests passed; typecheck, lint, production build, schema static audit, RLS static audit, and profile bootstrap static audit all passed.
+- Deferred: the follow-up migration and RPC behavior have static coverage only. Live migration, RPC, and cross-user RLS verification remain DEFERRED; no Docker or local Supabase runtime was started.

@@ -28,3 +28,28 @@ Assert-MigrationPattern `
   'Task occurrence links must only clear when a recurrence series is deleted.'
 
 Write-Output 'Static recurrence deletion audit passed.'
+
+$allMigrations = (
+  Get-ChildItem (Join-Path $PSScriptRoot '..\migrations') -Filter '*.sql' |
+    Sort-Object Name |
+    ForEach-Object { Get-Content -Raw $_.FullName }
+) -join "`n"
+$removeFocusMatches = [regex]::Matches(
+  $allMigrations,
+  '(?s)create or replace function public\.remove_task_focus\(p_task_id uuid\).*?\$\$;'
+)
+
+if ($removeFocusMatches.Count -eq 0) {
+  throw 'The remove_task_focus RPC must be defined.'
+}
+
+$removeFocusFunction = $removeFocusMatches[$removeFocusMatches.Count - 1].Value
+
+if ($removeFocusFunction -notmatch 'pg_advisory_xact_lock') {
+  throw 'Focus removal must lock the authenticated user and focus date.'
+}
+if ($removeFocusFunction -notmatch '(?s)array_agg\(id order by focus_position\).*?focus_date = null.*?unnest\(v_remaining_task_ids\) with ordinality') {
+  throw 'Focus removal must compact remaining tasks to dense positions.'
+}
+
+Write-Output 'Static Focus removal compaction audit passed.'
