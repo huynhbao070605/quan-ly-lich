@@ -25,7 +25,6 @@ export function QuickAddTask({ onCreate, projects = [] }: QuickAddTaskProps) {
   const [isComposing, setIsComposing] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
   const [projectId, setProjectId] = useState("");
-  const [repeat, setRepeat] = useState("Không lặp lại");
   const [title, setTitle] = useState("");
 
   async function submit() {
@@ -47,7 +46,7 @@ export function QuickAddTask({ onCreate, projects = [] }: QuickAddTaskProps) {
   }
 
   function handleTitleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "Enter" && !isComposing) {
+    if (event.key === "Enter" && !isComposing && !event.nativeEvent.isComposing) {
       event.preventDefault();
       void submit();
     }
@@ -131,12 +130,10 @@ export function QuickAddTask({ onCreate, projects = [] }: QuickAddTaskProps) {
             <span className="text-sm font-medium text-slate-700">Lặp lại</span>
             <select
               className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-              onChange={(event) => setRepeat(event.target.value)}
-              value={repeat}
+              disabled
+              value=""
             >
-              <option>Không lặp lại</option>
-              <option>Hằng ngày</option>
-              <option>Hằng tuần</option>
+              <option value="">Chưa khả dụng</option>
             </select>
           </label>
 

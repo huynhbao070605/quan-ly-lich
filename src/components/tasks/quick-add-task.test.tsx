@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -26,8 +26,10 @@ describe("QuickAddTask", () => {
 
     await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
 
-    expect(screen.getByLabelText("Lặp lại")).toBeVisible();
     expect(screen.getByLabelText("Mô tả")).toBeVisible();
+    expect(screen.getByLabelText("Lặp lại")).toBeDisabled();
+    expect(screen.queryByRole("option", { name: "Hằng ngày" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Hằng tuần" })).not.toBeInTheDocument();
   });
 
   test("submits the title with default priority on Enter outside IME composition", async () => {
@@ -46,17 +48,20 @@ describe("QuickAddTask", () => {
   });
 
   test("does not submit Enter while IME composition is active", async () => {
+    const user = userEvent.setup();
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<QuickAddTask onCreate={onCreate} />);
     const titleInput = screen.getByLabelText("Tên công việc");
 
-    titleInput.dispatchEvent(
-      new CompositionEvent("compositionstart", { bubbles: true }),
-    );
-    titleInput.dispatchEvent(
-      new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }),
-    );
+    await user.type(titleInput, "Nhập bằng IME");
+    fireEvent.compositionStart(titleInput);
+    fireEvent.keyDown(titleInput, { key: "Enter" });
 
     expect(onCreate).not.toHaveBeenCalled();
+
+    fireEvent.compositionEnd(titleInput);
+    fireEvent.keyDown(titleInput, { key: "Enter" });
+
+    expect(onCreate).toHaveBeenCalledTimes(1);
   });
 });
