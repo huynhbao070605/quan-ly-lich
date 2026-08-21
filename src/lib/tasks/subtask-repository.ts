@@ -132,15 +132,15 @@ export async function getTaskRecordBySubtaskId(
   subtaskId: string,
 ): Promise<ParentTaskRecord | null> {
   const result = await supabase
-    .from("tasks")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("subtasks.id", subtaskId)
+    .from("subtasks")
+    .select("task_id, tasks!inner(id)")
+    .eq("id", subtaskId)
+    .eq("tasks.user_id", userId)
     .maybeSingle();
 
   if (result.error) {
     throw result.error;
   }
 
-  return result.data;
+  return result.data === null ? null : { id: result.data.task_id };
 }

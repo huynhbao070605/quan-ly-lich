@@ -147,6 +147,18 @@ describe("subtask actions", () => {
     );
   });
 
+  test("toggleSubtask rejects cross-user child operations", async () => {
+    mocks.getTaskRecordBySubtaskId.mockResolvedValue(null);
+
+    const result = await toggleSubtask(subtaskId, true);
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Không tìm thấy công việc.",
+    });
+    expect(mocks.toggleSubtaskRecord).not.toHaveBeenCalled();
+  });
+
   test("reorderSubtasks writes zero-based positions in the provided order", async () => {
     const orderedIds = [
       "00000000-0000-4000-8000-000000000041",
