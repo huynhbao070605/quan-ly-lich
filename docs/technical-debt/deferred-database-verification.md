@@ -49,3 +49,19 @@ For Plan 02:
 - Use mocks or fakes only where appropriate for unit-level behavior.
 - Mark database-backed integration verification as deferred when it cannot run.
 - Do not pretend deferred database tests passed.
+
+## Plan 02 Deferred Items
+
+Plan 02 implementation is complete through Core Tasks & Views, but the live local Supabase database verification remains deferred.
+
+This is not a passed verification. The following Plan 02 areas still need live database/RLS proof when Supabase runtime is intentionally resumed:
+
+- Task CRUD repository actions, including authenticated ownership scoping.
+- Project/tag relations, including project delete `ON DELETE SET NULL` and tag relation cleanup.
+- Subtask ownership through parent task and database FK behavior.
+- Search/filter query execution against real Supabase data and RLS.
+- Dashboard, Daily Plan, Weekly Plan, Kanban, Eisenhower, and Global Search page reads through RLS.
+- Kanban reorder/move RPC transaction behavior and rollback semantics.
+- Eisenhower override/reset writes through RLS.
+- Today's Focus count/update/reorder behavior, including max-3 enforcement under real database constraints and concurrent calls.
+- Global Search task/project/tag-derived matches against real relational data.
