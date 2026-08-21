@@ -23,6 +23,7 @@ type QuickFilter = "all" | "today" | "upcoming" | "overdue";
 type TaskListProps = {
   tasks: TaskListItem[];
   now?: Date;
+  onSelectTask?: (taskId: string) => void;
 };
 
 const tabs: Array<{ id: QuickFilter; label: string }> = [
@@ -90,7 +91,7 @@ function EmptyTasks() {
   );
 }
 
-export function TaskList({ tasks, now = new Date() }: TaskListProps) {
+export function TaskList({ tasks, now = new Date(), onSelectTask }: TaskListProps) {
   const [activeFilter, setActiveFilter] = useState<QuickFilter>("all");
   const visibleTasks = filterTasks(tasks, activeFilter, now);
 
@@ -119,7 +120,17 @@ export function TaskList({ tasks, now = new Date() }: TaskListProps) {
             <article aria-label={task.title} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" key={task.id}>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 space-y-2">
-                  <h2 className="text-base font-semibold text-slate-950">{task.title}</h2>
+                  <h2 className="text-base font-semibold text-slate-950">
+                    {onSelectTask ? (
+                      <button
+                        className="text-left hover:text-teal-700"
+                        onClick={() => onSelectTask(task.id)}
+                        type="button"
+                      >
+                        {task.title}
+                      </button>
+                    ) : task.title}
+                  </h2>
                   {task.description ? <p className="line-clamp-2 text-sm text-slate-600">{task.description}</p> : null}
                   <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
                     <span className="inline-flex items-center gap-1">

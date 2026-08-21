@@ -33,9 +33,14 @@ const taskRecord: TaskRecord = {
 type Operation =
   | { method: "delete" | "insert" | "maybeSingle" | "select" | "single" | "update"; table: string; value?: unknown }
   | { method: "eq"; table: string; column: string; value: string }
-  | { method: "from"; table: string };
+  | { method: "from"; table: string }
+  | { method: "in"; table: string; column: string; values: string[] }
+  | { method: "rpc"; fn: string; args: Record<string, unknown> };
 
-function createFakeSupabase(projectData: { id: string } | null) {
+function createFakeSupabase(
+  projectData: { id: string } | null,
+  tagData: Array<{ id: string }> = [],
+) {
   const operations: Operation[] = [];
 
   const createBuilder = (table: string) => {
@@ -50,6 +55,10 @@ function createFakeSupabase(projectData: { id: string } | null) {
       },
       insert(value: Record<string, unknown>) {
         operations.push({ method: "insert", table, value });
+        return builder;
+      },
+      in(column: string, values: string[]) {
+        operations.push({ method: "in", table, column, values });
         return builder;
       },
       maybeSingle() {
@@ -68,10 +77,13 @@ function createFakeSupabase(projectData: { id: string } | null) {
         return Promise.resolve({ data: taskRecord, error: null });
       },
       then(
-        resolve: (value: { error: Error | null }) => unknown,
+        resolve: (value: { data?: Array<{ id: string }>; error: Error | null }) => unknown,
         reject?: (reason: unknown) => unknown,
       ) {
-        return Promise.resolve({ error: null }).then(resolve, reject);
+        return Promise.resolve({
+          data: table === "tags" ? tagData : undefined,
+          error: null,
+        }).then(resolve, reject);
       },
       update(value: Record<string, unknown>) {
         operations.push({ method: "update", table, value });
@@ -86,6 +98,10 @@ function createFakeSupabase(projectData: { id: string } | null) {
     from(table: string) {
       operations.push({ method: "from", table });
       return createBuilder(table);
+    },
+    rpc(fn: string, args: Record<string, unknown>) {
+      operations.push({ method: "rpc", fn, args });
+      return Promise.resolve({ data: null, error: null });
     },
   } as unknown as TaskSupabaseClient;
 
@@ -140,6 +156,57 @@ describe("task repository project ownership", () => {
       table: "tasks",
       column: "user_id",
       value: "server-user-id",
+    });
+  });
+
+  test("createTaskRecord validates owned tags and synchronizes the relation", async () => {
+    const tagId = "00000000-0000-4000-8000-000000000030";
+    const { operations, supabase } = createFakeSupabase(null, [{ id: tagId }]);
+
+    await createTaskRecord(supabase, "server-user-id", {
+      title: "Nộp báo cáo",
+      tagIds: [tagId],
+    });
+
+    expect(operations).toContainEqual({
+      method: "eq",
+      table: "tags",
+      column: "user_id",
+      value: "server-user-id",
+    });
+    expect(operations).toContainEqual({
+      method: "rpc",
+      fn: "sync_task_tags",
+      args: { p_task_id: taskRecord.id, p_tag_ids: [tagId] },
+    });
+  });
+
+  test("updateTaskRecord rejects an unowned tag before mutating the task", async () => {
+    const { operations, supabase } = createFakeSupabase(null, []);
+
+    await expect(
+      updateTaskRecord(supabase, "server-user-id", taskRecord.id, {
+        tagIds: ["00000000-0000-4000-8000-000000000030"],
+      }),
+    ).rejects.toThrow("Tag not found.");
+
+    expect(operations).not.toContainEqual(
+      expect.objectContaining({ method: "update", table: "tasks" }),
+    );
+  });
+
+  test("updateTaskRecord synchronizes an owned tag selection", async () => {
+    const tagId = "00000000-0000-4000-8000-000000000030";
+    const { operations, supabase } = createFakeSupabase(null, [{ id: tagId }]);
+
+    await updateTaskRecord(supabase, "server-user-id", taskRecord.id, {
+      tagIds: [tagId],
+    });
+
+    expect(operations).toContainEqual({
+      method: "rpc",
+      fn: "sync_task_tags",
+      args: { p_task_id: taskRecord.id, p_tag_ids: [tagId] },
     });
   });
 });

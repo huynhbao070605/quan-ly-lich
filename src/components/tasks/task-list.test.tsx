@@ -1,6 +1,6 @@
 import userEvent from "@testing-library/user-event";
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import Loading from "@/app/(dashboard)/app/cong-viec/loading";
 
@@ -147,6 +147,20 @@ describe("TaskViews", () => {
     );
     expect(screen.getByRole("table")).toBeVisible();
     expect(screen.queryByRole("article", { name: "Nộp báo cáo" })).not.toBeInTheDocument();
+  });
+
+  test("opens the selected task from both list and table views", async () => {
+    const user = userEvent.setup();
+    const onSelectTask = vi.fn();
+
+    render(<TaskViews onSelectTask={onSelectTask} tasks={tasks} now={now} />);
+
+    await user.click(screen.getByRole("button", { name: "Nộp báo cáo" }));
+    expect(onSelectTask).toHaveBeenLastCalledWith(tasks[0].id);
+
+    await user.click(screen.getByRole("button", { name: "Bảng" }));
+    await user.click(screen.getByRole("button", { name: "Nộp báo cáo" }));
+    expect(onSelectTask).toHaveBeenLastCalledWith(tasks[0].id);
   });
 });
 

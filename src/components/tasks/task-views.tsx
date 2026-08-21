@@ -8,9 +8,10 @@ import { TaskTable } from "./task-table";
 type TaskViewsProps = {
   tasks: TaskListItem[];
   now?: Date;
+  onSelectTask?: (taskId: string) => void;
 };
 
-export function TaskViews({ tasks, now }: TaskViewsProps) {
+export function TaskViews({ tasks, now, onSelectTask }: TaskViewsProps) {
   const [view, setView] = useState<"list" | "table">("list");
 
   return (
@@ -23,7 +24,11 @@ export function TaskViews({ tasks, now }: TaskViewsProps) {
           Bảng
         </button>
       </div>
-      {view === "list" ? <TaskList now={now} tasks={tasks} /> : <TaskTable tasks={tasks} />}
+      {view === "list" ? (
+        <TaskList now={now} onSelectTask={onSelectTask} tasks={tasks} />
+      ) : (
+        <TaskTable onSelectTask={onSelectTask} tasks={tasks} />
+      )}
     </section>
   );
 }

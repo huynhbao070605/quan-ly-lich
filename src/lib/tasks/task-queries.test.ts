@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   buildListTasksQuery,
   buildSearchTasksQuery,
+  listTasks,
   type TaskQueryOperation,
 } from "./task-queries";
 
@@ -73,6 +74,32 @@ describe("buildListTasksQuery", () => {
       column: "status",
       value: "IN_PROGRESS",
     });
+  });
+
+  test("uses an inner task-tag embed when filtering by tag", () => {
+    const selected: string[] = [];
+    const builder = {
+      eq() { return builder; },
+      gte() { return builder; },
+      in() { return builder; },
+      lt() { return builder; },
+      not() { return builder; },
+      or() { return builder; },
+      order() { return builder; },
+      select(columns?: string) {
+        if (columns) selected.push(columns);
+        return builder;
+      },
+    };
+    const client = { from: () => builder };
+
+    listTasks(client, "server-user-id", {
+      tagIds: ["00000000-0000-4000-8000-000000000030"],
+    });
+
+    expect(selected).toEqual([
+      "*, projects(*), task_tags!inner(tags(*)), subtasks(*)",
+    ]);
   });
 
   test("overdue filter excludes DONE and CANCELLED", () => {

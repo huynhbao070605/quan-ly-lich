@@ -49,12 +49,22 @@ describe("createTaskSchema", () => {
       dueAt: "2026-08-21T10:00:00.000Z",
       allDay: false,
       tagIds: [tagId],
-      important: true,
-      urgent: true,
-      eisenhowerOverride: true,
     });
 
     expect(result.success).toBe(true);
+  });
+
+  test("strips derived Eisenhower and Focus fields from generic create input", () => {
+    const result = createTaskSchema.parse({
+      title: "Nộp báo cáo",
+      important: true,
+      urgent: true,
+      eisenhowerOverride: true,
+      focusDate: "2026-08-21",
+      focusPosition: 1,
+    });
+
+    expect(result).toEqual({ title: "Nộp báo cáo" });
   });
 });
 
@@ -64,12 +74,21 @@ describe("updateTaskSchema", () => {
       title: "Nộp báo cáo đã sửa",
       dueAt: "2026-08-22T10:00:00.000Z",
       tagIds: [tagId],
-      important: false,
-      urgent: true,
-      eisenhowerOverride: true,
     });
 
     expect(result.success).toBe(true);
+  });
+
+  test("strips derived Eisenhower and Focus fields from generic update input", () => {
+    const result = updateTaskSchema.parse({
+      important: false,
+      urgent: true,
+      eisenhowerOverride: true,
+      focusDate: "2026-08-21",
+      focusPosition: 2,
+    });
+
+    expect(result).toEqual({});
   });
 
   test("rejects invalid status and priority values", () => {

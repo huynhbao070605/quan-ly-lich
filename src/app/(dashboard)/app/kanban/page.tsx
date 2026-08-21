@@ -3,6 +3,10 @@ import type { KanbanTask } from "@/components/kanban/task-card";
 import { requireUser } from "@/lib/auth/require-user";
 import { createServerClient } from "@/lib/supabase/server";
 import { listTasks } from "@/lib/tasks/task-queries";
+import {
+  parseTaskRouteParams,
+  type TaskRouteSearchParams,
+} from "@/lib/tasks/task-route-params";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 type RawKanbanTask = {
@@ -27,12 +31,19 @@ function mapTask(task: RawKanbanTask): KanbanTask {
   };
 }
 
-export default async function KanbanPage() {
+type KanbanPageProps = {
+  searchParams: Promise<TaskRouteSearchParams>;
+};
+
+export default async function KanbanPage({ searchParams }: KanbanPageProps) {
   const user = await requireUser();
   const supabase = await createServerClient();
+  const { filters } = parseTaskRouteParams(await searchParams);
+  const projectFilters = filters.projectId ? { projectId: filters.projectId } : {};
   const { data } = (await (listTasks(
     supabase as never,
     user.id,
+    projectFilters,
   ) as unknown as Promise<{ data: RawKanbanTask[] | null }>)) ?? { data: [] };
   const tasks = (data ?? []).map(mapTask);
 

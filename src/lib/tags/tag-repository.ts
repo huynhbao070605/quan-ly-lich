@@ -8,15 +8,17 @@ export type TagRecord = {
 
 type SupabaseSingleResult<T> = Promise<{ data: T | null; error: Error | null }>;
 type SupabaseDeleteResult = { error: Error | null };
+type SupabaseListResult<T> = { data: T[] | null; error: Error | null };
 
 type SupabaseQueryBuilder<T> = {
   delete(): SupabaseQueryBuilder<T>;
   eq(column: string, value: string): SupabaseQueryBuilder<T>;
   insert(value: Record<string, unknown>): SupabaseQueryBuilder<T>;
   maybeSingle(): SupabaseSingleResult<T>;
+  order(column: string, options?: { ascending?: boolean }): SupabaseQueryBuilder<T>;
   select(columns?: string): SupabaseQueryBuilder<T>;
   single(): SupabaseSingleResult<T>;
-} & PromiseLike<SupabaseDeleteResult>;
+} & PromiseLike<SupabaseDeleteResult | SupabaseListResult<T>>;
 
 export type TagSupabaseClient = {
   from(table: "tags"): SupabaseQueryBuilder<TagRecord>;
@@ -71,4 +73,21 @@ export async function deleteTagRecord(
     .maybeSingle();
 
   assertSingle(result);
+}
+
+export async function listTagRecords(
+  supabase: TagSupabaseClient,
+  userId: string,
+): Promise<TagRecord[]> {
+  const result = (await supabase
+    .from("tags")
+    .select("*")
+    .eq("user_id", userId)
+    .order("name", { ascending: true })) as SupabaseListResult<TagRecord>;
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data ?? [];
 }

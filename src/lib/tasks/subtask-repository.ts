@@ -91,11 +91,17 @@ export async function reorderSubtaskRecords(
   taskId: string,
   positions: SubtaskPositionUpdate[],
 ): Promise<SubtaskRecord[]> {
-  await Promise.all(
+  const mutationResults = await Promise.all(
     positions.map(({ id, position }) =>
       supabase.from("subtasks").update({ position }).eq("task_id", taskId).eq("id", id),
     ),
   );
+
+  for (const result of mutationResults) {
+    if (result.error) {
+      throw result.error;
+    }
+  }
 
   const result = (await supabase
     .from("subtasks")

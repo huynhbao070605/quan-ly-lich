@@ -31,26 +31,42 @@ export type TaskRecord = {
 
 type SupabaseMutationResult<T> = Promise<{ data: T | null; error: Error | null }>;
 type SupabaseDeleteResult = { error: Error | null };
+type SupabaseListResult<T> = { data: T[] | null; error: Error | null };
+type SupabaseRpcResult = Promise<{ data: unknown; error: Error | null }>;
 
 type SupabaseQueryBuilder<T> = {
   delete(): SupabaseQueryBuilder<T>;
   eq(column: string, value: string): SupabaseQueryBuilder<T>;
-  insert(value: Record<string, unknown>): SupabaseQueryBuilder<T>;
+  in(column: string, values: string[]): SupabaseQueryBuilder<T>;
+  insert(value: Record<string, unknown> | Array<Record<string, unknown>>): SupabaseQueryBuilder<T>;
   maybeSingle(): SupabaseMutationResult<T>;
   select(columns?: string): SupabaseQueryBuilder<T>;
   single(): SupabaseMutationResult<T>;
   update(value: Record<string, unknown>): SupabaseQueryBuilder<T>;
-} & PromiseLike<SupabaseDeleteResult>;
+} & PromiseLike<SupabaseDeleteResult | SupabaseListResult<T>>;
 
 export type TaskSupabaseClient = {
   from(table: "tasks"): SupabaseQueryBuilder<TaskRecord>;
   from(table: "projects"): SupabaseQueryBuilder<{ id: string }>;
+  from(table: "tags"): SupabaseQueryBuilder<{ id: string }>;
+  rpc(
+    fn: "sync_task_tags",
+    args: { p_task_id: string; p_tag_ids: string[] },
+  ): SupabaseRpcResult;
 };
 
-export type TaskMutationInput = CreateTaskInput | UpdateTaskInput;
-export type TaskRepositoryUpdateInput = UpdateTaskInput & {
+type TaskDerivedInput = {
+  important?: boolean;
+  urgent?: boolean;
+  eisenhowerOverride?: boolean;
   completedAt?: string | null;
+  focusDate?: string | null;
+  focusPosition?: number | null;
 };
+
+export type TaskRepositoryCreateInput = CreateTaskInput & TaskDerivedInput;
+export type TaskMutationInput = TaskRepositoryCreateInput | TaskRepositoryUpdateInput;
+export type TaskRepositoryUpdateInput = UpdateTaskInput & TaskDerivedInput;
 
 function toTaskRow(
   input: TaskMutationInput | TaskRepositoryUpdateInput,
@@ -128,12 +144,61 @@ async function assertOwnedProjectIfPresent(
   }
 }
 
+async function assertOwnedTags(
+  supabase: TaskSupabaseClient,
+  userId: string,
+  tagIds: string[] | undefined,
+): Promise<void> {
+  if (tagIds === undefined) {
+    return;
+  }
+
+  const uniqueTagIds = [...new Set(tagIds)];
+  if (uniqueTagIds.length === 0) {
+    return;
+  }
+
+  const result = (await supabase
+    .from("tags")
+    .select("id")
+    .eq("user_id", userId)
+    .in("id", uniqueTagIds)) as SupabaseListResult<{ id: string }>;
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if ((result.data ?? []).length !== uniqueTagIds.length) {
+    throw new Error("Tag not found.");
+  }
+}
+
+async function syncTaskTags(
+  supabase: TaskSupabaseClient,
+  taskId: string,
+  tagIds: string[] | undefined,
+): Promise<void> {
+  if (tagIds === undefined) {
+    return;
+  }
+
+  const { error } = await supabase.rpc("sync_task_tags", {
+    p_task_id: taskId,
+    p_tag_ids: [...new Set(tagIds)],
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
 export async function createTaskRecord(
   supabase: TaskSupabaseClient,
   userId: string,
-  input: CreateTaskInput,
+  input: TaskRepositoryCreateInput,
 ): Promise<TaskRecord> {
   await assertOwnedProjectIfPresent(supabase, userId, input.projectId);
+  await assertOwnedTags(supabase, userId, input.tagIds);
 
   const result = await supabase
     .from("tasks")
@@ -141,7 +206,9 @@ export async function createTaskRecord(
     .select("*")
     .single();
 
-  return assertTaskResult(result);
+  const task = assertTaskResult(result);
+  await syncTaskTags(supabase, task.id, input.tagIds);
+  return task;
 }
 
 export async function updateTaskRecord(
@@ -151,16 +218,31 @@ export async function updateTaskRecord(
   input: TaskRepositoryUpdateInput,
 ): Promise<TaskRecord> {
   await assertOwnedProjectIfPresent(supabase, userId, input.projectId);
+  await assertOwnedTags(supabase, userId, input.tagIds);
 
-  const result = await supabase
-    .from("tasks")
-    .update(toTaskRow(input))
-    .eq("user_id", userId)
-    .eq("id", taskId)
-    .select("*")
-    .single();
+  const row = toTaskRow(input);
+  let task: TaskRecord;
 
-  return assertTaskResult(result);
+  if (Object.keys(row).length === 0) {
+    const existingTask = await getTaskRecordById(supabase, userId, taskId);
+    if (existingTask === null) {
+      throw new Error("Task not found.");
+    }
+    task = existingTask;
+  } else {
+    const result = await supabase
+      .from("tasks")
+      .update(row)
+      .eq("user_id", userId)
+      .eq("id", taskId)
+      .select("*")
+      .single();
+
+    task = assertTaskResult(result);
+  }
+
+  await syncTaskTags(supabase, taskId, input.tagIds);
+  return task;
 }
 
 export async function deleteTaskRecord(

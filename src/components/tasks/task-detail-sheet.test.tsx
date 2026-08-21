@@ -55,9 +55,6 @@ describe("TaskDetailSheet", () => {
       startAt: task.startAt,
       dueAt: task.dueAt,
       allDay: false,
-      important: false,
-      urgent: false,
-      eisenhowerOverride: false,
       tagIds: task.tagIds,
     });
 
@@ -145,5 +142,49 @@ describe("TaskDetailSheet", () => {
     await user.selectOptions(screen.getByLabelText("Lặp lại"), "WEEKLY");
 
     expect(onRecurrenceChange).toHaveBeenCalledWith(task.id, "WEEKLY");
+  });
+
+  test("sends manual Eisenhower changes through the dedicated callback", async () => {
+    const user = userEvent.setup();
+    const onEisenhowerChange = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <TaskDetailSheet
+        onClose={vi.fn()}
+        onEisenhowerChange={onEisenhowerChange}
+        onUpdate={vi.fn()}
+        open
+        task={task}
+      />,
+    );
+
+    await user.click(screen.getByLabelText("Quan trọng"));
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+
+    expect(onEisenhowerChange).toHaveBeenCalledWith(task.id, {
+      important: true,
+      urgent: false,
+      manual: true,
+    });
+  });
+
+  test("deletes the task from the detail workflow after confirmation", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <TaskDetailSheet
+        onClose={vi.fn()}
+        onDelete={onDelete}
+        onUpdate={vi.fn()}
+        open
+        task={task}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Xóa công việc" }));
+
+    expect(onDelete).toHaveBeenCalledWith(task.id);
   });
 });

@@ -65,7 +65,7 @@ const quadrants: QuadrantDefinition[] = [
   {
     id: "DELEGATE",
     label: "Ủy quyền",
-    hint: "Quadrant Delegate tiêu chuẩn",
+    hint: "Ô ủy quyền theo ma trận tiêu chuẩn",
     flags: { important: false, urgent: true },
   },
   {

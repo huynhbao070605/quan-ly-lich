@@ -4,6 +4,7 @@ import type { TaskListItem } from "./task-list";
 
 type TaskTableProps = {
   tasks: TaskListItem[];
+  onSelectTask?: (taskId: string) => void;
 };
 
 function formatDate(value?: string | null): string {
@@ -19,7 +20,7 @@ function formatDate(value?: string | null): string {
   }).format(new Date(value));
 }
 
-export function TaskTable({ tasks }: TaskTableProps) {
+export function TaskTable({ tasks, onSelectTask }: TaskTableProps) {
   if (tasks.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
@@ -48,7 +49,15 @@ export function TaskTable({ tasks }: TaskTableProps) {
             {tasks.map((task) => (
               <tr key={task.id}>
                 <td className="px-4 py-3 font-medium text-slate-950">
-                  {task.title}
+                  {onSelectTask ? (
+                    <button
+                      className="text-left hover:text-teal-700"
+                      onClick={() => onSelectTask(task.id)}
+                      type="button"
+                    >
+                      {task.title}
+                    </button>
+                  ) : task.title}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {task.project?.name ?? "Không có dự án"}

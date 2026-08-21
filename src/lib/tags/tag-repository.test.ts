@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { deleteTagRecord, type TagSupabaseClient } from "./tag-repository";
+import { deleteTagRecord, listTagRecords, type TagSupabaseClient } from "./tag-repository";
 
 function createDeleteClient(deletedRow: { id: string } | null) {
   const operations: Array<Record<string, unknown>> = [];
@@ -70,5 +70,46 @@ describe("deleteTagRecord", () => {
     });
     expect(operations).toContainEqual({ method: "select", columns: "id" });
     expect(operations).toContainEqual({ method: "maybeSingle" });
+  });
+});
+
+describe("listTagRecords", () => {
+  test("returns tags ordered by name and scoped to the authenticated user", async () => {
+    const tag = {
+      id: "00000000-0000-4000-8000-000000000030",
+      user_id: "server-user-id",
+      name: "Gấp",
+      color: null,
+      created_at: "2026-08-21T00:00:00.000Z",
+    };
+    const operations: Array<Record<string, unknown>> = [];
+    const builder = {
+      eq(column: string, value: string) {
+        operations.push({ method: "eq", column, value });
+        return builder;
+      },
+      order(column: string) {
+        operations.push({ method: "order", column });
+        return builder;
+      },
+      select(columns?: string) {
+        operations.push({ method: "select", columns });
+        return builder;
+      },
+      then(resolve: (value: { data: typeof tag[]; error: null }) => unknown) {
+        return Promise.resolve({ data: [tag], error: null }).then(resolve);
+      },
+    };
+    const supabase = {
+      from() { return builder; },
+    } as unknown as TagSupabaseClient;
+
+    await expect(listTagRecords(supabase, "server-user-id")).resolves.toEqual([tag]);
+    expect(operations).toContainEqual({
+      method: "eq",
+      column: "user_id",
+      value: "server-user-id",
+    });
+    expect(operations).toContainEqual({ method: "order", column: "name" });
   });
 });

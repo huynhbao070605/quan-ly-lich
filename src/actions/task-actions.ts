@@ -10,6 +10,7 @@ import {
   deleteTaskRecord,
   getTaskRecordById,
   type TaskRecord,
+  type TaskRepositoryCreateInput,
   type TaskRepositoryUpdateInput,
   type TaskSupabaseClient,
   updateTaskRecord,
@@ -49,22 +50,15 @@ function parseDate(value: string | null): Date | null {
 function buildAutoEisenhowerUpdate(
   existingTask: TaskRecord,
   input: TaskRepositoryUpdateInput,
-): Pick<UpdateTaskInput, "important" | "urgent"> {
-  if (input.eisenhowerOverride === true) {
-    return {};
-  }
-
+): Pick<TaskRepositoryUpdateInput, "important" | "urgent"> {
   if (existingTask.eisenhower_override) {
-    if (input.eisenhowerOverride !== false) {
-      return {};
-    }
+    return {};
   }
 
   if (
     input.priority === undefined &&
     input.dueAt === undefined &&
-    input.status === undefined &&
-    input.eisenhowerOverride !== false
+    input.status === undefined
   ) {
     return {};
   }
@@ -79,10 +73,18 @@ function buildAutoEisenhowerUpdate(
   return flags;
 }
 
-function buildStatusUpdate(status: TaskStatus): TaskRepositoryUpdateInput {
+function buildStatusUpdate(
+  existingTask: TaskRecord,
+  status: TaskStatus,
+): TaskRepositoryUpdateInput {
   return {
     status,
-    completedAt: status === "DONE" ? new Date().toISOString() : null,
+    completedAt:
+      status === "DONE"
+        ? existingTask.status === "DONE" && existingTask.completed_at !== null
+          ? existingTask.completed_at
+          : new Date().toISOString()
+        : null,
   };
 }
 
@@ -90,7 +92,8 @@ function buildRepositoryUpdate(
   existingTask: TaskRecord,
   input: UpdateTaskInput,
 ): TaskRepositoryUpdateInput {
-  const statusUpdate = input.status === undefined ? {} : buildStatusUpdate(input.status);
+  const statusUpdate =
+    input.status === undefined ? {} : buildStatusUpdate(existingTask, input.status);
   const update = {
     ...input,
     ...statusUpdate,
@@ -129,7 +132,23 @@ export async function createTask(input: unknown): Promise<TaskActionResult<TaskR
   try {
     const user = await requireUser();
     const supabase = await toTaskClient();
-    const data = await createTaskRecord(supabase, user.id, parsed.data);
+    const status = parsed.data.status ?? "TODO";
+    const priority = parsed.data.priority ?? "MEDIUM";
+    const flags = suggestEisenhower({
+      priority,
+      dueAt: parsed.data.dueAt ? new Date(parsed.data.dueAt) : null,
+      status,
+      now: new Date(),
+    });
+    const createInput: TaskRepositoryCreateInput = {
+      ...parsed.data,
+      status,
+      priority,
+      ...flags,
+      eisenhowerOverride: false,
+      completedAt: status === "DONE" ? new Date().toISOString() : null,
+    };
+    const data = await createTaskRecord(supabase, user.id, createInput);
 
     revalidatePath("/app/cong-viec");
 

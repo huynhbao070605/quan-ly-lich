@@ -155,8 +155,15 @@ export function listTasks<T>(
   userId: string,
   filters: TaskListFilters = {},
 ) {
+  const taskTags =
+    filters.tagIds && filters.tagIds.length > 0
+      ? "task_tags!inner(tags(*))"
+      : "task_tags(tags(*))";
+
   return applyTaskQueryOperations(
-    supabase.from("tasks").select("*, projects(*), task_tags(tags(*))"),
+    supabase
+      .from("tasks")
+      .select(`*, projects(*), ${taskTags}, subtasks(*)`),
     buildListTasksQuery(userId, filters),
   ).order("due_at", { ascending: true });
 }
@@ -167,7 +174,9 @@ export function searchTasks<T>(
   query: string,
 ) {
   return applyTaskQueryOperations(
-    supabase.from("tasks").select("*, projects(*), task_tags(tags(*))"),
+    supabase
+      .from("tasks")
+      .select("*, projects(*), task_tags(tags(*)), subtasks(*)"),
     buildSearchTasksQuery(userId, query),
   ).order("updated_at", { ascending: false });
 }

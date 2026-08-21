@@ -75,6 +75,51 @@ describe("task actions", () => {
     );
   });
 
+  test("createTask derives automatic Eisenhower flags from priority", async () => {
+    await createTask({
+      title: "Nộp báo cáo",
+      priority: "HIGH",
+    });
+
+    expect(mocks.createTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      expect.objectContaining({
+        important: true,
+        urgent: false,
+        eisenhowerOverride: false,
+      }),
+    );
+  });
+
+  test("createTask sets completed_at when created as DONE", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-21T09:35:00.000Z"));
+
+    await createTask({ title: "Nộp báo cáo", status: "DONE" });
+
+    expect(mocks.createTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      expect.objectContaining({
+        status: "DONE",
+        completedAt: "2026-08-21T09:35:00.000Z",
+      }),
+    );
+  });
+
+  test("createTask forwards tag IDs for owned relation synchronization", async () => {
+    const tagIds = ["00000000-0000-4000-8000-000000000030"];
+
+    await createTask({ title: "Nộp báo cáo", tagIds });
+
+    expect(mocks.createTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      expect.objectContaining({ tagIds }),
+    );
+  });
+
   test("setTaskStatus sets completed_at when moving to DONE", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-21T09:30:00.000Z"));
@@ -143,6 +188,24 @@ describe("task actions", () => {
     );
   });
 
+  test("updateTask preserves completed_at when an already-DONE task is saved", async () => {
+    const completedAt = "2026-08-20T09:30:00.000Z";
+    mocks.getTaskRecordById.mockResolvedValue({
+      ...existingTask,
+      status: "DONE",
+      completed_at: completedAt,
+    });
+
+    await updateTask(taskId, { title: "Báo cáo đã sửa", status: "DONE" });
+
+    expect(mocks.updateTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      taskId,
+      expect.objectContaining({ completedAt }),
+    );
+  });
+
   test("updateTask recalculates Eisenhower when override is false", async () => {
     await updateTask(taskId, {
       priority: "HIGH",
@@ -185,33 +248,10 @@ describe("task actions", () => {
     );
   });
 
-  test("updateTask recalculates Eisenhower when manual override is reset", async () => {
-    mocks.getTaskRecordById.mockResolvedValue({
-      ...existingTask,
-      priority: "HIGH",
-      due_at: "2026-08-24T08:00:00.000Z",
-      important: false,
-      urgent: false,
-      eisenhower_override: true,
-    });
+  test("updateTask strips manual Eisenhower fields from the generic mutation path", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-20T00:00:00.000Z"));
 
-    await updateTask(taskId, {
-      eisenhowerOverride: false,
-    });
-
-    expect(mocks.updateTaskRecord).toHaveBeenCalledWith(
-      expect.anything(),
-      "server-user-id",
-      taskId,
-      expect.objectContaining({
-        eisenhowerOverride: false,
-        important: true,
-        urgent: false,
-      }),
-    );
-  });
-
-  test("updateTask keeps explicit manual flags when enabling override in the same update", async () => {
     await updateTask(taskId, {
       priority: "URGENT",
       important: false,
@@ -225,10 +265,28 @@ describe("task actions", () => {
       taskId,
       expect.objectContaining({
         priority: "URGENT",
-        important: false,
+        important: true,
         urgent: false,
-        eisenhowerOverride: true,
       }),
+    );
+    expect(mocks.updateTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      taskId,
+      expect.not.objectContaining({ eisenhowerOverride: true }),
+    );
+  });
+
+  test("updateTask forwards tag IDs for owned relation synchronization", async () => {
+    const tagIds = ["00000000-0000-4000-8000-000000000030"];
+
+    await updateTask(taskId, { tagIds });
+
+    expect(mocks.updateTaskRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      taskId,
+      expect.objectContaining({ tagIds }),
     );
   });
 });

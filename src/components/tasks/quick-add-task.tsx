@@ -163,7 +163,7 @@ export function QuickAddTask({ onCreate, projects = [] }: QuickAddTaskProps) {
           className="inline-flex h-10 items-center justify-center rounded-md bg-teal-600 px-4 text-sm font-semibold text-white hover:bg-teal-700"
           type="submit"
         >
-          Công việc mới
+          Tạo công việc
         </button>
       </div>
     </form>

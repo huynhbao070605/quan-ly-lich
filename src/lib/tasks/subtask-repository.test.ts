@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   getTaskRecordBySubtaskId,
+  reorderSubtaskRecords,
   type SubtaskSupabaseClient,
 } from "./subtask-repository";
 
@@ -71,5 +72,33 @@ describe("getTaskRecordBySubtaskId", () => {
         "00000000-0000-4000-8000-000000000040",
       ),
     ).resolves.toBeNull();
+  });
+});
+
+describe("reorderSubtaskRecords", () => {
+  test("throws when any position update fails", async () => {
+    const updateError = new Error("write failed");
+    let updating = false;
+    const builder = {
+      update() { updating = true; return builder; },
+      eq() { return builder; },
+      order() { return builder; },
+      select() { updating = false; return builder; },
+      then(resolve: (value: { data: unknown[]; error: Error | null }) => unknown) {
+        return Promise.resolve({
+          data: [],
+          error: updating ? updateError : null,
+        }).then(resolve);
+      },
+    };
+    const supabase = {
+      from() { return builder; },
+    } as unknown as SubtaskSupabaseClient;
+
+    await expect(
+      reorderSubtaskRecords(supabase, "00000000-0000-4000-8000-000000000010", [
+        { id: "00000000-0000-4000-8000-000000000040", position: 0 },
+      ]),
+    ).rejects.toThrow("write failed");
   });
 });

@@ -4,16 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/auth/require-user";
-import {
-  countFocusTasks,
-  listFocusTaskIds,
-  type FocusSupabaseClient,
-} from "@/lib/tasks/focus";
-import {
-  type TaskRecord,
-  type TaskSupabaseClient,
-  updateTaskRecord,
-} from "@/lib/tasks/task-repository";
 import { createServerClient } from "@/lib/supabase/server";
 
 type FocusActionSuccess<T> = {
@@ -28,14 +18,41 @@ type FocusActionFailure = {
 
 export type FocusActionResult<T> = FocusActionSuccess<T> | FocusActionFailure;
 
+type FocusRpcError = {
+  code?: string;
+};
+
+type FocusSupabaseClient = {
+  rpc(
+    fn: "set_task_focus",
+    args: {
+      p_task_id: string;
+      p_focus_date: string;
+      p_focus_position: number;
+    },
+  ): Promise<{ data: unknown; error: FocusRpcError | null }>;
+  rpc(
+    fn: "remove_task_focus",
+    args: { p_task_id: string },
+  ): Promise<{ data: unknown; error: FocusRpcError | null }>;
+  rpc(
+    fn: "reorder_task_focus",
+    args: { p_focus_date: string; p_task_ids: string[] },
+  ): Promise<{ data: unknown; error: FocusRpcError | null }>;
+};
+
 const taskIdSchema = z.uuid();
 const focusDateSchema = z.string().date();
 const focusPositionSchema = z.number().int().min(1).max(3);
-const orderedTaskIdsSchema = z.array(taskIdSchema).max(3);
-const maxFocusMessage = "Bạn chỉ có thể chọn tối đa 3 công việc trọng tâm mỗi ngày.";
+const orderedTaskIdsSchema = z
+  .array(taskIdSchema)
+  .max(3)
+  .refine((taskIds) => new Set(taskIds).size === taskIds.length);
+const maxFocusMessage =
+  "Bạn chỉ có thể chọn tối đa 3 công việc trọng tâm mỗi ngày.";
 
-function toTaskClient(): Promise<TaskSupabaseClient> {
-  return createServerClient() as unknown as Promise<TaskSupabaseClient>;
+function toFocusClient(): Promise<FocusSupabaseClient> {
+  return createServerClient() as unknown as Promise<FocusSupabaseClient>;
 }
 
 function failure(
@@ -53,7 +70,7 @@ export async function setFocus(
   taskId: string,
   date: string,
   position: number,
-): Promise<FocusActionResult<TaskRecord>> {
+): Promise<FocusActionResult<null>> {
   const parsedTaskId = taskIdSchema.safeParse(taskId);
   const parsedDate = focusDateSchema.safeParse(date);
   const parsedPosition = focusPositionSchema.safeParse(position);
@@ -63,33 +80,31 @@ export async function setFocus(
   }
 
   try {
-    const user = await requireUser();
-    const supabase = await toTaskClient();
-    const count = await countFocusTasks(
-      supabase as unknown as FocusSupabaseClient,
-      user.id,
-      parsedDate.data,
-      parsedTaskId.data,
-    );
-
-    if (count >= 3) {
-      return failure(maxFocusMessage);
-    }
-
-    const data = await updateTaskRecord(supabase, user.id, parsedTaskId.data, {
-      focusDate: parsedDate.data,
-      focusPosition: parsedPosition.data,
+    await requireUser();
+    const supabase = await toFocusClient();
+    const { error } = await supabase.rpc("set_task_focus", {
+      p_task_id: parsedTaskId.data,
+      p_focus_date: parsedDate.data,
+      p_focus_position: parsedPosition.data,
     });
 
-    revalidateDailyPlan();
+    if (error?.code === "23505") {
+      return failure(maxFocusMessage);
+    }
+    if (error) {
+      return failure();
+    }
 
-    return { ok: true, data };
+    revalidateDailyPlan();
+    return { ok: true, data: null };
   } catch {
     return failure();
   }
 }
 
-export async function removeFocus(taskId: string): Promise<FocusActionResult<TaskRecord>> {
+export async function removeFocus(
+  taskId: string,
+): Promise<FocusActionResult<null>> {
   const parsedTaskId = taskIdSchema.safeParse(taskId);
 
   if (!parsedTaskId.success) {
@@ -97,16 +112,18 @@ export async function removeFocus(taskId: string): Promise<FocusActionResult<Tas
   }
 
   try {
-    const user = await requireUser();
-    const supabase = await toTaskClient();
-    const data = await updateTaskRecord(supabase, user.id, parsedTaskId.data, {
-      focusDate: null,
-      focusPosition: null,
+    await requireUser();
+    const supabase = await toFocusClient();
+    const { error } = await supabase.rpc("remove_task_focus", {
+      p_task_id: parsedTaskId.data,
     });
 
-    revalidateDailyPlan();
+    if (error) {
+      return failure();
+    }
 
-    return { ok: true, data };
+    revalidateDailyPlan();
+    return { ok: true, data: null };
   } catch {
     return failure();
   }
@@ -124,35 +141,18 @@ export async function reorderFocus(
   }
 
   try {
-    const user = await requireUser();
-    const supabase = await toTaskClient();
-    const existingTaskIds = await listFocusTaskIds(
-      supabase as unknown as FocusSupabaseClient,
-      user.id,
-      parsedDate.data,
-    );
-    const existingTaskIdSet = new Set(existingTaskIds);
-    const submittedTaskIdSet = new Set(parsedTaskIds.data);
-    const sameFocusSet =
-      parsedTaskIds.data.length === existingTaskIds.length &&
-      submittedTaskIdSet.size === parsedTaskIds.data.length &&
-      parsedTaskIds.data.every((taskId) => existingTaskIdSet.has(taskId));
+    await requireUser();
+    const supabase = await toFocusClient();
+    const { error } = await supabase.rpc("reorder_task_focus", {
+      p_focus_date: parsedDate.data,
+      p_task_ids: parsedTaskIds.data,
+    });
 
-    if (!sameFocusSet) {
-      return failure(maxFocusMessage);
+    if (error) {
+      return failure();
     }
 
-    await Promise.all(
-      parsedTaskIds.data.map((taskId, index) =>
-        updateTaskRecord(supabase, user.id, taskId, {
-          focusDate: parsedDate.data,
-          focusPosition: index + 1,
-        }),
-      ),
-    );
-
     revalidateDailyPlan();
-
     return { ok: true, data: null };
   } catch {
     return failure();
