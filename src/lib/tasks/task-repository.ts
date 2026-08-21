@@ -1,0 +1,163 @@
+import type {
+  CreateTaskInput,
+  TaskPriority,
+  TaskStatus,
+  UpdateTaskInput,
+} from "@/lib/validation/task";
+
+export type TaskRecord = {
+  id: string;
+  user_id: string;
+  project_id: string | null;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  start_at: string | null;
+  due_at: string | null;
+  all_day: boolean;
+  important: boolean;
+  urgent: boolean;
+  eisenhower_override: boolean;
+  focus_date: string | null;
+  focus_position: number | null;
+  kanban_position: number;
+  recurrence_id: string | null;
+  recurrence_instance_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type SupabaseMutationResult<T> = Promise<{ data: T | null; error: Error | null }>;
+type SupabaseDeleteResult = { error: Error | null };
+
+type SupabaseQueryBuilder<T> = {
+  delete(): SupabaseQueryBuilder<T>;
+  eq(column: string, value: string): SupabaseQueryBuilder<T>;
+  insert(value: Record<string, unknown>): SupabaseQueryBuilder<T>;
+  maybeSingle(): SupabaseMutationResult<T>;
+  select(columns?: string): SupabaseQueryBuilder<T>;
+  single(): SupabaseMutationResult<T>;
+  update(value: Record<string, unknown>): SupabaseQueryBuilder<T>;
+} & PromiseLike<SupabaseDeleteResult>;
+
+export type TaskSupabaseClient = {
+  from(table: "tasks"): SupabaseQueryBuilder<TaskRecord>;
+};
+
+export type TaskMutationInput = CreateTaskInput | UpdateTaskInput;
+export type TaskRepositoryUpdateInput = UpdateTaskInput & {
+  completedAt?: string | null;
+};
+
+function toTaskRow(
+  input: TaskMutationInput | TaskRepositoryUpdateInput,
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+
+  if ("title" in input && input.title !== undefined) row.title = input.title;
+  if ("projectId" in input && input.projectId !== undefined) {
+    row.project_id = input.projectId;
+  }
+  if ("description" in input && input.description !== undefined) {
+    row.description = input.description;
+  }
+  if ("status" in input && input.status !== undefined) row.status = input.status;
+  if ("priority" in input && input.priority !== undefined) {
+    row.priority = input.priority;
+  }
+  if ("startAt" in input && input.startAt !== undefined) row.start_at = input.startAt;
+  if ("dueAt" in input && input.dueAt !== undefined) row.due_at = input.dueAt;
+  if ("allDay" in input && input.allDay !== undefined) row.all_day = input.allDay;
+  if ("important" in input && input.important !== undefined) {
+    row.important = input.important;
+  }
+  if ("urgent" in input && input.urgent !== undefined) row.urgent = input.urgent;
+  if ("eisenhowerOverride" in input && input.eisenhowerOverride !== undefined) {
+    row.eisenhower_override = input.eisenhowerOverride;
+  }
+  if ("completedAt" in input && input.completedAt !== undefined) {
+    row.completed_at = input.completedAt;
+  }
+
+  return row;
+}
+
+function assertTaskResult<T>(result: { data: T | null; error: Error | null }): T {
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.data === null) {
+    throw new Error("Task not found.");
+  }
+
+  return result.data;
+}
+
+export async function createTaskRecord(
+  supabase: TaskSupabaseClient,
+  userId: string,
+  input: CreateTaskInput,
+): Promise<TaskRecord> {
+  const result = await supabase
+    .from("tasks")
+    .insert({ ...toTaskRow(input), user_id: userId })
+    .select("*")
+    .single();
+
+  return assertTaskResult(result);
+}
+
+export async function updateTaskRecord(
+  supabase: TaskSupabaseClient,
+  userId: string,
+  taskId: string,
+  input: TaskRepositoryUpdateInput,
+): Promise<TaskRecord> {
+  const result = await supabase
+    .from("tasks")
+    .update(toTaskRow(input))
+    .eq("user_id", userId)
+    .eq("id", taskId)
+    .select("*")
+    .single();
+
+  return assertTaskResult(result);
+}
+
+export async function deleteTaskRecord(
+  supabase: TaskSupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", taskId);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function getTaskRecordById(
+  supabase: TaskSupabaseClient,
+  userId: string,
+  taskId: string,
+): Promise<TaskRecord | null> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("id", taskId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
