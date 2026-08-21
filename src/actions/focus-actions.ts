@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/auth/require-user";
-import { countFocusTasks, type FocusSupabaseClient } from "@/lib/tasks/focus";
+import {
+  countFocusTasks,
+  listFocusTaskIds,
+  type FocusSupabaseClient,
+} from "@/lib/tasks/focus";
 import {
   type TaskRecord,
   type TaskSupabaseClient,
@@ -122,6 +126,19 @@ export async function reorderFocus(
   try {
     const user = await requireUser();
     const supabase = await toTaskClient();
+    const existingTaskIds = await listFocusTaskIds(
+      supabase as unknown as FocusSupabaseClient,
+      user.id,
+      parsedDate.data,
+    );
+    const existingTaskIdSet = new Set(existingTaskIds);
+    const sameFocusSet =
+      parsedTaskIds.data.length === existingTaskIds.length &&
+      parsedTaskIds.data.every((taskId) => existingTaskIdSet.has(taskId));
+
+    if (!sameFocusSet) {
+      return failure(maxFocusMessage);
+    }
 
     await Promise.all(
       parsedTaskIds.data.map((taskId, index) =>

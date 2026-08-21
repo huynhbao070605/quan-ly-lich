@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createServerClient: vi.fn(),
   countFocusTasks: vi.fn(),
+  listFocusTaskIds: vi.fn(),
   revalidatePath: vi.fn(),
   requireUser: vi.fn(),
   updateTaskRecord: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/tasks/focus", () => ({
   countFocusTasks: mocks.countFocusTasks,
+  listFocusTaskIds: mocks.listFocusTaskIds,
 }));
 vi.mock("@/lib/tasks/task-repository", () => ({
   updateTaskRecord: mocks.updateTaskRecord,
@@ -37,6 +39,10 @@ describe("focus actions", () => {
     mocks.requireUser.mockResolvedValue({ id: "server-user-id" });
     mocks.createServerClient.mockResolvedValue({ from: vi.fn() });
     mocks.countFocusTasks.mockResolvedValue(2);
+    mocks.listFocusTaskIds.mockResolvedValue([
+      "00000000-0000-4000-8000-000000000011",
+      "00000000-0000-4000-8000-000000000012",
+    ]);
     mocks.updateTaskRecord.mockResolvedValue(taskRecord);
   });
 
@@ -97,6 +103,11 @@ describe("focus actions", () => {
     const result = await reorderFocus(focusDate, orderedTaskIds);
 
     expect(result).toEqual({ ok: true, data: null });
+    expect(mocks.listFocusTaskIds).toHaveBeenCalledWith(
+      expect.anything(),
+      "server-user-id",
+      focusDate,
+    );
     expect(mocks.updateTaskRecord).toHaveBeenNthCalledWith(
       1,
       expect.anything(),
@@ -111,5 +122,21 @@ describe("focus actions", () => {
       orderedTaskIds[1],
       { focusDate, focusPosition: 2 },
     );
+  });
+
+  test("reorderFocus refuses to add a fourth focus task through a direct call", async () => {
+    mocks.listFocusTaskIds.mockResolvedValue([
+      "00000000-0000-4000-8000-000000000011",
+      "00000000-0000-4000-8000-000000000012",
+      "00000000-0000-4000-8000-000000000013",
+    ]);
+
+    const result = await reorderFocus(focusDate, [taskId]);
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Bạn chỉ có thể chọn tối đa 3 công việc trọng tâm mỗi ngày.",
+    });
+    expect(mocks.updateTaskRecord).not.toHaveBeenCalled();
   });
 });
