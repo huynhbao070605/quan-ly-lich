@@ -1,8 +1,8 @@
 import { Plus } from "lucide-react";
 
 import { TaskFilters } from "@/components/tasks/task-filters";
-import { TaskList, type TaskListItem } from "@/components/tasks/task-list";
-import { TaskTable } from "@/components/tasks/task-table";
+import type { TaskListItem } from "@/components/tasks/task-list";
+import { TaskViews } from "@/components/tasks/task-views";
 import { requireUser } from "@/lib/auth/require-user";
 import { createServerClient } from "@/lib/supabase/server";
 import { listTasks } from "@/lib/tasks/task-queries";
@@ -59,17 +59,7 @@ export default async function TasksPage() {
       </div>
 
       <TaskFilters />
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(28rem,0.9fr)]">
-        <TaskList tasks={tasks} />
-        <section className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-950">Bảng</h2>
-            <span className="text-sm text-slate-500">{tasks.length} công việc</span>
-          </div>
-          <TaskTable tasks={tasks} />
-        </section>
-      </div>
+      <TaskViews tasks={tasks} />
     </div>
   );
 }
