@@ -15,10 +15,7 @@ type ReminderEditorProps = {
   value: number[];
 };
 
-function toggleOffset(
-  current: number[],
-  offset: number,
-): number[] {
+function toggleOffset(current: number[], offset: number): number[] {
   const next = current.includes(offset)
     ? current.filter((value) => value !== offset)
     : [...current, offset];
