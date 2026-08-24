@@ -1,4 +1,5 @@
 import { AppearanceForm } from "@/components/settings/appearance-form";
+import { AccountForm } from "@/components/settings/account-form";
 import { NotificationSettingsForm } from "@/components/settings/notification-settings-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { TaskDefaultsForm } from "@/components/settings/task-defaults-form";
@@ -95,7 +96,7 @@ export default async function SettingsPage() {
         </div>
       </section>
 
-      <section aria-labelledby="notification-settings-heading" className="pb-8">
+      <section aria-labelledby="notification-settings-heading" className="border-b border-slate-200 pb-8">
         <h2 id="notification-settings-heading" className="text-lg font-semibold text-slate-950">
           Thông báo
         </h2>
@@ -109,6 +110,18 @@ export default async function SettingsPage() {
             initialNotifyRecurring={settings?.notify_recurring ?? true}
             initialNotifyReminder={settings?.notify_reminder ?? true}
           />
+        </div>
+      </section>
+
+      <section aria-labelledby="account-heading" className="pb-8">
+        <h2 id="account-heading" className="text-lg font-semibold text-slate-950">
+          Tài khoản
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Đăng xuất hoặc xóa tài khoản hiện tại.
+        </p>
+        <div className="mt-5">
+          <AccountForm />
         </div>
       </section>
     </div>
