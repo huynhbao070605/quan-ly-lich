@@ -64,4 +64,27 @@ describe("QuickAddTask", () => {
 
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
+
+  test("has a predictable keyboard tab order through compact fields", async () => {
+    const user = userEvent.setup();
+    render(<QuickAddTask onCreate={vi.fn()} projects={[{ id: "project-1", name: "Dự án" }]} />);
+
+    await user.tab();
+    expect(screen.getByLabelText("Tên công việc")).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByLabelText("Ngày")).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByLabelText("Ưu tiên")).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByLabelText("Dự án")).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Thêm tùy chọn" })).toHaveFocus();
+
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Tạo công việc" })).toHaveFocus();
+  });
 });
