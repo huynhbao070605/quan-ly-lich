@@ -65,3 +65,19 @@ This is not a passed verification. The following Plan 02 areas still need live d
 - Eisenhower override/reset writes through RLS.
 - Today's Focus count/update/reorder behavior, including max-3 enforcement under real database constraints and concurrent calls.
 - Global Search task/project/tag-derived matches against real relational data.
+
+## Plan 03 Deferred Items
+
+Plan 03 implementation is complete through Calendar, Recurring Tasks & Reminders, but live Supabase database, RLS, SQL function, and cron verification remains deferred.
+
+This is not a passed verification. The following Plan 03 areas still need live database/runtime proof when Supabase runtime is intentionally resumed:
+
+- Apply Plan 03 migrations from a clean database, including `recurrence_series`, notification `dedupe_key`, SQL job functions, and pg_cron schedules.
+- Regenerate Supabase database types from the live schema.
+- Execute `supabase/tests/recurrence_schema.sql` against PostgreSQL.
+- Execute `supabase/tests/notification_jobs.sql` against PostgreSQL.
+- Verify recurrence-series RLS and owner-only behavior with real authenticated users.
+- Verify reminder replacement keeps triggered history and recalculates untriggered future reminders under real database constraints.
+- Verify calendar move/resize consistency for task timestamps, reminders, and Eisenhower fields against real database writes.
+- Verify `process_due_reminders()`, `process_due_today_notifications()`, `process_overdue_notifications()`, and `process_recurring_occurrences()` idempotency against PostgreSQL.
+- Verify pg_cron job installation and job run history with `cron.job` and `cron.job_run_details`.
