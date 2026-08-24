@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useTheme } from "next-themes";
 
 import { updateAppearance } from "@/actions/settings-actions";
 import type { AppearanceTheme, SettingsActionResult } from "@/actions/settings-actions";
@@ -18,6 +19,7 @@ const themes: Array<{ label: string; value: AppearanceTheme }> = [
 ];
 
 export function AppearanceForm({ initialTheme }: AppearanceFormProps) {
+  const { setTheme } = useTheme();
   const [state, formAction, isPending] = useActionState<SettingsActionResult, FormData>(
     async (_previousState, formData) =>
       updateAppearance({ theme: String(formData.get("theme") ?? "") as AppearanceTheme }),
@@ -39,6 +41,7 @@ export function AppearanceForm({ initialTheme }: AppearanceFormProps) {
                 type="radio"
                 value={value}
                 defaultChecked={initialTheme === value}
+                onChange={() => setTheme(value)}
                 className="size-4 accent-emerald-700"
               />
               {label}
