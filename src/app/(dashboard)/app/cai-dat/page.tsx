@@ -1,5 +1,6 @@
 import { AppearanceForm } from "@/components/settings/appearance-form";
 import { ProfileForm } from "@/components/settings/profile-form";
+import { ReminderDefaultsForm } from "@/components/settings/reminder-defaults-form";
 import { requireUser } from "@/lib/auth/require-user";
 import { createServerClient } from "@/lib/supabase/server";
 import type { AppearanceTheme } from "@/actions/settings-actions";
@@ -9,7 +10,11 @@ export default async function SettingsPage() {
   const supabase = await createServerClient();
   const [{ data: profile }, { data: settings }] = await Promise.all([
     supabase.from("profiles").select("display_name, email").eq("id", user.id).single(),
-    supabase.from("user_settings").select("theme").eq("user_id", user.id).single(),
+    supabase
+      .from("user_settings")
+      .select("theme, default_reminder_offsets_minutes")
+      .eq("user_id", user.id)
+      .single(),
   ]);
 
   return (
@@ -39,6 +44,20 @@ export default async function SettingsPage() {
         <p className="mt-1 text-sm text-slate-600">Chọn chế độ hiển thị bạn muốn sử dụng.</p>
         <div className="mt-5">
           <AppearanceForm initialTheme={(settings?.theme ?? "system") as AppearanceTheme} />
+        </div>
+      </section>
+
+      <section aria-labelledby="reminder-heading" className="pb-8">
+        <h2 id="reminder-heading" className="text-lg font-semibold text-slate-950">
+          Nhắc việc
+        </h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Chọn các mốc nhắc mặc định cho công việc mới.
+        </p>
+        <div className="mt-5">
+          <ReminderDefaultsForm
+            initialOffsets={settings?.default_reminder_offsets_minutes ?? [1440, 0]}
+          />
         </div>
       </section>
     </div>
