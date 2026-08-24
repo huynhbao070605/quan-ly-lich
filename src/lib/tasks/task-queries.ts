@@ -25,12 +25,15 @@ type TaskQueryBuilder<T> = {
   not(column: string, operator: string, value: string): TaskQueryBuilder<T>;
   or(expression: string): TaskQueryBuilder<T>;
   order(column: string, options?: { ascending?: boolean }): TaskQueryBuilder<T>;
+  range(from: number, to: number): TaskQueryBuilder<T>;
   select(columns?: string): TaskQueryBuilder<T>;
 };
 
 export type TaskQueryClient<T> = {
   from(table: "tasks"): TaskQueryBuilder<T>;
 };
+
+export const TASK_LIST_PAGE_SIZE = 50;
 
 function addOperation(
   operations: TaskQueryOperation[],
@@ -165,7 +168,9 @@ export function listTasks<T>(
       .from("tasks")
       .select(`*, projects(*), ${taskTags}, subtasks(*)`),
     buildListTasksQuery(userId, filters),
-  ).order("due_at", { ascending: true });
+  )
+    .order("due_at", { ascending: true })
+    .range(0, TASK_LIST_PAGE_SIZE - 1);
 }
 
 export function searchTasks<T>(
@@ -178,7 +183,9 @@ export function searchTasks<T>(
       .from("tasks")
       .select("*, projects(*), task_tags(tags(*)), subtasks(*)"),
     buildSearchTasksQuery(userId, query),
-  ).order("updated_at", { ascending: false });
+  )
+    .order("updated_at", { ascending: false })
+    .range(0, TASK_LIST_PAGE_SIZE - 1);
 }
 
 export type { TaskPriority, TaskStatus };

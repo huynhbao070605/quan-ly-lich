@@ -86,6 +86,7 @@ describe("buildListTasksQuery", () => {
       not() { return builder; },
       or() { return builder; },
       order() { return builder; },
+      range() { return builder; },
       select(columns?: string) {
         if (columns) selected.push(columns);
         return builder;
@@ -100,6 +101,29 @@ describe("buildListTasksQuery", () => {
     expect(selected).toEqual([
       "*, projects(*), matching_task_tags:task_tags!inner(tags(*)), task_tags(tags(*)), subtasks(*)",
     ]);
+  });
+
+  test("limits the first task list page to 50 rows by default", () => {
+    const rangeCalls: Array<[number, number]> = [];
+    const builder = {
+      eq() { return builder; },
+      gte() { return builder; },
+      in() { return builder; },
+      lt() { return builder; },
+      not() { return builder; },
+      or() { return builder; },
+      order() { return builder; },
+      range(from: number, to: number) {
+        rangeCalls.push([from, to]);
+        return builder;
+      },
+      select() { return builder; },
+    };
+    const client = { from: () => builder };
+
+    listTasks(client, "server-user-id");
+
+    expect(rangeCalls).toEqual([[0, 49]]);
   });
 
   test("overdue filter excludes DONE and CANCELLED", () => {
