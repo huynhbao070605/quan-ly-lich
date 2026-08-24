@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 
+import { RegisterServiceWorker } from "@/components/pwa/register-service-worker";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 
 import "./globals.css";
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>{children}</ThemeProvider>
+        <RegisterServiceWorker />
       </body>
     </html>
   );
