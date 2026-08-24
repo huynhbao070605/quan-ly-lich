@@ -1,3 +1,6 @@
+-- DEFERRED DB RUNTIME VERIFICATION:
+-- Run against a real Supabase/PostgreSQL database after Docker/Supabase local is available.
+
 select to_regclass('public.recurrence_series') is not null as recurrence_series_exists;
 select to_regclass('public.task_recurrences') is null as legacy_task_recurrences_dropped;
 
