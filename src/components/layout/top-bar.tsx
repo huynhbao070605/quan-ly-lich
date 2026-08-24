@@ -1,24 +1,19 @@
-import { Bell } from "lucide-react";
-
+import { listNotifications } from "@/actions/notification-actions";
+import { NotificationPopover } from "@/components/notifications/notification-popover";
 import { GlobalSearch } from "@/components/search/global-search";
 
 type TopBarProps = {
   email: string;
 };
 
-export function TopBar({ email }: TopBarProps) {
+export async function TopBar({ email }: TopBarProps) {
   const initial = email.charAt(0).toUpperCase();
+  const notifications = await listNotifications();
 
   return (
     <header className="flex h-16 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
       <GlobalSearch />
-      <button
-        type="button"
-        aria-label="Thông báo"
-        className="grid size-10 shrink-0 place-items-center rounded-md text-slate-700 hover:bg-slate-100 hover:text-slate-950"
-      >
-        <Bell aria-hidden="true" className="size-5" />
-      </button>
+      <NotificationPopover initialNotifications={notifications.ok ? notifications.data : []} />
       <details className="relative shrink-0">
         <summary className="grid size-10 cursor-pointer place-items-center rounded-full bg-emerald-700 text-sm font-semibold text-white marker:content-none hover:bg-emerald-800">
           <span className="sr-only">Mở menu tài khoản</span>
