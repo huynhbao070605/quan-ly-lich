@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  formatWeekRange,
   getWeekRange,
   getWorkloadLevel,
   groupTasksByVietnamDay,
@@ -34,6 +35,26 @@ describe("getWeekRange", () => {
       "2026-08-22",
       "2026-08-23",
     ]);
+  });
+});
+
+describe("formatWeekRange", () => {
+  test("formats a normal week without time noise", () => {
+    const week = getWeekRange(new Date("2026-08-26T12:00:00.000+07:00"));
+
+    expect(formatWeekRange(week.start, week.end)).toBe("24/08 - 30/08/2026");
+  });
+
+  test("formats a week crossing two months", () => {
+    const week = getWeekRange(new Date("2026-09-01T12:00:00.000+07:00"));
+
+    expect(formatWeekRange(week.start, week.end)).toBe("31/08 - 06/09/2026");
+  });
+
+  test("formats a week crossing two years", () => {
+    const week = getWeekRange(new Date("2026-12-31T12:00:00.000+07:00"));
+
+    expect(formatWeekRange(week.start, week.end)).toBe("28/12/2026 - 03/01/2027");
   });
 });
 
