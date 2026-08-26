@@ -44,10 +44,25 @@ function vietnamDateKey(date: Date): string {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+function vietnamDateParts(date: Date): { day: string; month: string; year: string } {
+  const [year, month, day] = vietnamDateKey(date).split("-");
+
+  return { day, month, year };
+}
+
 function vietnamWeekday(date: Date): number {
   const [year, month, day] = vietnamDateKey(date).split("-").map(Number);
 
   return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
+export function formatWeekRange(start: Date, end: Date): string {
+  const startParts = vietnamDateParts(start);
+  const endParts = vietnamDateParts(end);
+  const startDate = `${startParts.day}/${startParts.month}`;
+  const startYear = startParts.year === endParts.year ? "" : `/${startParts.year}`;
+
+  return `${startDate}${startYear} - ${endParts.day}/${endParts.month}/${endParts.year}`;
 }
 
 function taskDate(task: WeeklyPlanTask): Date | null {

@@ -5,8 +5,8 @@ import { WeeklyAgenda } from "@/components/weekly/weekly-agenda";
 import { WeeklyBoard, type WeeklyDisplayTask } from "@/components/weekly/weekly-board";
 import { requireUser } from "@/lib/auth/require-user";
 import { getDashboardSummary } from "@/lib/dashboard/queries";
-import { formatVietnamDateTime, isOverdue } from "@/lib/domain/time";
-import { groupTasksByVietnamDay, getWeekRange } from "@/lib/tasks/weekly-plan";
+import { isOverdue } from "@/lib/domain/time";
+import { formatWeekRange, groupTasksByVietnamDay, getWeekRange } from "@/lib/tasks/weekly-plan";
 import { listTasks } from "@/lib/tasks/task-queries";
 import { createServerClient } from "@/lib/supabase/server";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
@@ -35,10 +35,6 @@ function mapTask(task: RawWeeklyTask): WeeklyDisplayTask {
     completedAt: task.completed_at,
     project: task.projects,
   };
-}
-
-function formatWeekRange(start: Date, end: Date): string {
-  return `${formatVietnamDateTime(start).slice(0, 10)} - ${formatVietnamDateTime(end).slice(0, 10)}`;
 }
 
 export default async function WeeklyPlanPage() {
