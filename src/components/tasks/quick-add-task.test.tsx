@@ -13,16 +13,17 @@ describe("QuickAddTask", () => {
     render(<QuickAddTask onCreate={vi.fn()} />);
 
     expect(screen.getByLabelText("Tên công việc")).toBeVisible();
-    expect(screen.getByLabelText("Ngày")).toBeVisible();
+    expect(screen.getByLabelText("Hạn chót")).toBeVisible();
+    expect(screen.queryByLabelText("Ngày bắt đầu")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Ưu tiên")).toBeVisible();
     expect(screen.getByLabelText("Dự án")).toBeVisible();
     expect(screen.getByRole("button", { name: "Thêm tùy chọn" })).toBeVisible();
     expect(screen.queryByLabelText("Lặp lại")).not.toBeInTheDocument();
   });
 
-  test("reveals advanced fields after expanding options", async () => {
+  test("reveals advanced fields and reminder controls after expanding options", async () => {
     const user = userEvent.setup();
-    render(<QuickAddTask onCreate={vi.fn()} />);
+    render(<QuickAddTask onCreate={vi.fn()} initialReminderOffsets={[1440, 0]} />);
 
     await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
 
@@ -30,6 +31,50 @@ describe("QuickAddTask", () => {
     expect(screen.getByLabelText("Lặp lại")).toBeDisabled();
     expect(screen.queryByRole("option", { name: "Hằng ngày" })).not.toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "Hằng tuần" })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Nhắc việc" })).toBeVisible();
+    expect(screen.getByLabelText("1 ngày trước")).toBeChecked();
+    expect(screen.getByLabelText("Đúng hạn")).toBeChecked();
+  });
+
+  test("submits a timed deadline using Asia Ho Chi Minh semantics", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<QuickAddTask onCreate={onCreate} />);
+
+    await user.type(screen.getByLabelText("Tên công việc"), "Tập thể thao");
+    await user.type(screen.getByLabelText("Hạn chót"), "2026-08-26");
+    await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
+    await user.click(screen.getByLabelText("Cả ngày"));
+    await user.clear(screen.getByLabelText("Giờ hạn chót"));
+    await user.type(screen.getByLabelText("Giờ hạn chót"), "09:30");
+    await user.click(screen.getByRole("button", { name: "Tạo công việc" }));
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Tập thể thao",
+        allDay: false,
+        dueAt: "2026-08-26T02:30:00.000Z",
+      }),
+    );
+  });
+
+  test("submits selected reminder offsets with the new task", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<QuickAddTask onCreate={onCreate} initialReminderOffsets={[1440]} />);
+
+    await user.type(screen.getByLabelText("Tên công việc"), "Nộp báo cáo");
+    await user.type(screen.getByLabelText("Hạn chót"), "2026-08-26");
+    await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
+    await user.click(screen.getByLabelText("1 giờ trước"));
+    await user.click(screen.getByLabelText("1 ngày trước"));
+    await user.click(screen.getByRole("button", { name: "Tạo công việc" }));
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reminderOffsets: [60],
+      }),
+    );
   });
 
   test("submits the title with default priority on Enter outside IME composition", async () => {
@@ -73,7 +118,7 @@ describe("QuickAddTask", () => {
     expect(screen.getByLabelText("Tên công việc")).toHaveFocus();
 
     await user.tab();
-    expect(screen.getByLabelText("Ngày")).toHaveFocus();
+    expect(screen.getByLabelText("Hạn chót")).toHaveFocus();
 
     await user.tab();
     expect(screen.getByLabelText("Ưu tiên")).toHaveFocus();

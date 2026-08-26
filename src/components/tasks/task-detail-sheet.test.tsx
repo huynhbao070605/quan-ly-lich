@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -11,18 +11,20 @@ const task = {
   status: "TODO" as const,
   priority: "MEDIUM" as const,
   projectId: "00000000-0000-4000-8000-000000000002",
-  startAt: "2026-08-21T00:00:00.000Z",
-  dueAt: "2026-08-22T00:00:00.000Z",
-  allDay: true,
+  startAt: "2026-08-20T17:00:00.000Z",
+  dueAt: "2026-08-22T02:30:00.000Z",
+  allDay: false,
   important: false,
   urgent: false,
   eisenhowerOverride: false,
   tagIds: ["00000000-0000-4000-8000-000000000003"],
+  reminderOffsets: [1440, 0],
 };
 
 describe("TaskDetailSheet", () => {
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
   });
 
   test("submits controlled task edits through the update callback", async () => {
@@ -53,9 +55,10 @@ describe("TaskDetailSheet", () => {
       priority: "HIGH",
       projectId: task.projectId,
       startAt: task.startAt,
-      dueAt: task.dueAt,
-      allDay: false,
+      dueAt: "2026-08-21T17:00:00.000Z",
+      allDay: true,
       tagIds: task.tagIds,
+      reminderOffsets: [1440, 0],
     });
 
     rerender(
@@ -70,6 +73,47 @@ describe("TaskDetailSheet", () => {
     );
 
     expect(screen.getByLabelText("Tên công việc")).toHaveValue("Hoàn thiện báo cáo");
+  });
+
+  test("shows and saves a timed deadline without UTC date drift", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(true);
+
+    render(<TaskDetailSheet onClose={vi.fn()} onUpdate={onUpdate} open task={task} />);
+
+    expect(screen.getByLabelText("Hạn chót")).toHaveValue("2026-08-22");
+    expect(screen.getByLabelText("Giờ hạn chót")).toHaveValue("09:30");
+
+    fireEvent.change(screen.getByLabelText("Giờ hạn chót"), {
+      target: { value: "10:45" },
+    });
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      task.id,
+      expect.objectContaining({
+        allDay: false,
+        dueAt: "2026-08-22T03:45:00.000Z",
+      }),
+    );
+  });
+
+  test("saves multiple reminder offsets with the task update", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(true);
+
+    render(<TaskDetailSheet onClose={vi.fn()} onUpdate={onUpdate} open task={task} />);
+
+    await user.click(screen.getByLabelText("Đúng hạn"));
+    await user.click(screen.getByLabelText("1 giờ trước"));
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      task.id,
+      expect.objectContaining({
+        reminderOffsets: [1440, 60],
+      }),
+    );
   });
 
   test("labels the dialog, focuses the title, and closes on Escape", async () => {
@@ -106,33 +150,14 @@ describe("TaskDetailSheet", () => {
     expect(onAddSubtask).toHaveBeenCalledWith(task.id, "Kiểm tra số liệu");
   });
 
-  test("changes the reminder through its callback", async () => {
-    const user = userEvent.setup();
-    const onReminderChange = vi.fn().mockResolvedValue(undefined);
-
-    render(
-      <TaskDetailSheet
-        onReminderChange={onReminderChange}
-        onClose={vi.fn()}
-        onUpdate={vi.fn()}
-        open
-        task={task}
-      />,
-    );
-
-    await user.selectOptions(screen.getByLabelText("Nhắc việc"), "AT_START");
-
-    expect(onReminderChange).toHaveBeenCalledWith(task.id, "AT_START");
-  });
-
   test("changes recurrence through its callback", async () => {
     const user = userEvent.setup();
     const onRecurrenceChange = vi.fn().mockResolvedValue(undefined);
 
     render(
       <TaskDetailSheet
-        onRecurrenceChange={onRecurrenceChange}
         onClose={vi.fn()}
+        onRecurrenceChange={onRecurrenceChange}
         onUpdate={vi.fn()}
         open
         task={task}

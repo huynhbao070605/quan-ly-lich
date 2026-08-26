@@ -166,7 +166,7 @@ export function listTasks<T>(
   return applyTaskQueryOperations(
     supabase
       .from("tasks")
-      .select(`*, projects(*), ${taskTags}, subtasks(*)`),
+      .select(`*, projects(*), ${taskTags}, subtasks(*), task_reminders(offset_minutes)`),
     buildListTasksQuery(userId, filters),
   )
     .order("due_at", { ascending: true })
@@ -181,7 +181,7 @@ export function searchTasks<T>(
   return applyTaskQueryOperations(
     supabase
       .from("tasks")
-      .select("*, projects(*), task_tags(tags(*)), subtasks(*)"),
+      .select("*, projects(*), task_tags(tags(*)), subtasks(*), task_reminders(offset_minutes)"),
     buildSearchTasksQuery(userId, query),
   )
     .order("updated_at", { ascending: false })

@@ -31,7 +31,12 @@ type RawTask = {
   eisenhower_override: boolean;
   projects: { id: string; name: string } | null;
   task_tags?: Array<{ tags: { id: string; name: string } | null }>;
+  task_reminders?: Array<{ offset_minutes: number }>;
   subtasks?: SubtaskRecord[];
+};
+
+type SettingsRow = {
+  default_reminder_offsets_minutes: number[];
 };
 
 type TasksPageProps = {
@@ -58,6 +63,9 @@ function mapTask(task: RawTask): TasksWorkspaceTask {
     important: task.important,
     urgent: task.urgent,
     eisenhowerOverride: task.eisenhower_override,
+    reminderOffsets: [...new Set(
+      (task.task_reminders ?? []).map((reminder) => reminder.offset_minutes),
+    )].toSorted((a, b) => b - a),
     tagIds: tags.map((tag) => tag.id),
     tags,
     subtasks: task.subtasks ?? [],
@@ -68,7 +76,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
   const user = await requireUser();
   const supabase = await createServerClient();
   const { filters, initialTaskId } = parseTaskRouteParams(await searchParams);
-  const [taskResult, projects, tags] = await Promise.all([
+  const [taskResult, projects, tags, settingsResult] = await Promise.all([
     listTasks(supabase as never, user.id, filters) as unknown as Promise<{
       data: RawTask[] | null;
     }>,
@@ -77,6 +85,11 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
       user.id,
     ),
     listTagRecords(supabase as unknown as TagSupabaseClient, user.id),
+    supabase
+      .from("user_settings")
+      .select("default_reminder_offsets_minutes")
+      .eq("user_id", user.id)
+      .maybeSingle() as unknown as Promise<{ data: SettingsRow | null }>,
   ]);
 
   return (
@@ -89,6 +102,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
       </div>
 
       <TasksWorkspace
+        defaultReminderOffsets={settingsResult.data?.default_reminder_offsets_minutes ?? [1440, 0]}
         filterValues={{
           projectId: filters.projectId ?? undefined,
           priority: filters.priority,

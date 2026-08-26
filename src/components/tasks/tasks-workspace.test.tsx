@@ -52,6 +52,7 @@ const task: TasksWorkspaceTask = {
   important: false,
   urgent: false,
   eisenhowerOverride: false,
+  reminderOffsets: [],
   tagIds: [],
   tags: [],
   subtasks: [],

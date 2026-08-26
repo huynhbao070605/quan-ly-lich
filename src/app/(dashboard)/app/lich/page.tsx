@@ -11,6 +11,7 @@ type CalendarTaskRow = {
   occurrence_start_at: string | null;
   recurrence_series_id: string | null;
   start_at: string | null;
+  task_reminders?: Array<{ offset_minutes: number }>;
   title: string;
 };
 
@@ -20,7 +21,9 @@ function mapTask(row: CalendarTaskRow): CalendarTask {
     dueAt: row.due_at,
     id: row.id,
     recurrenceSeriesId: row.recurrence_series_id,
-    reminderOffsets: [],
+    reminderOffsets: [...new Set(
+      (row.task_reminders ?? []).map((reminder) => reminder.offset_minutes),
+    )].toSorted((a, b) => b - a),
     startAt: row.start_at ?? row.occurrence_start_at,
     title: row.title,
   };

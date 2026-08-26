@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { setTaskReminderOffsets } from "@/actions/reminder-actions";
 import { requireUser } from "@/lib/auth/require-user";
 import { createServerClient } from "@/lib/supabase/server";
 import {
@@ -119,6 +120,19 @@ function mapTaskError(error: unknown): TaskActionFailure {
   };
 }
 
+async function applyReminderOffsetsIfRequested(
+  taskId: string,
+  reminderOffsets: number[] | undefined,
+): Promise<TaskActionFailure | null> {
+  if (reminderOffsets === undefined) {
+    return null;
+  }
+
+  const result = await setTaskReminderOffsets(taskId, reminderOffsets);
+
+  return result.ok ? null : result;
+}
+
 export async function createTask(input: unknown): Promise<TaskActionResult<TaskRecord>> {
   const parsed = createTaskSchema.safeParse(input);
 
@@ -149,6 +163,14 @@ export async function createTask(input: unknown): Promise<TaskActionResult<TaskR
       completedAt: status === "DONE" ? new Date().toISOString() : null,
     };
     const data = await createTaskRecord(supabase, user.id, createInput);
+    const reminderFailure = await applyReminderOffsetsIfRequested(
+      data.id,
+      parsed.data.reminderOffsets,
+    );
+
+    if (reminderFailure) {
+      return reminderFailure;
+    }
 
     revalidatePath("/app/cong-viec");
 
@@ -190,6 +212,14 @@ export async function updateTask(
       parsedTaskId.data,
       buildRepositoryUpdate(existingTask, parsed.data),
     );
+    const reminderFailure = await applyReminderOffsetsIfRequested(
+      parsedTaskId.data,
+      parsed.data.reminderOffsets,
+    );
+
+    if (reminderFailure) {
+      return reminderFailure;
+    }
 
     revalidatePath("/app/cong-viec");
 

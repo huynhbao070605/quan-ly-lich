@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getTaskRecordById: vi.fn(),
   revalidatePath: vi.fn(),
   requireUser: vi.fn(),
+  setTaskReminderOffsets: vi.fn(),
   updateTaskRecord: vi.fn(),
 }));
 
@@ -19,6 +20,9 @@ vi.mock("@/lib/tasks/task-repository", () => ({
   deleteTaskRecord: mocks.deleteTaskRecord,
   getTaskRecordById: mocks.getTaskRecordById,
   updateTaskRecord: mocks.updateTaskRecord,
+}));
+vi.mock("@/actions/reminder-actions", () => ({
+  setTaskReminderOffsets: mocks.setTaskReminderOffsets,
 }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 
@@ -59,6 +63,7 @@ describe("task actions", () => {
     mocks.createTaskRecord.mockResolvedValue(existingTask);
     mocks.updateTaskRecord.mockResolvedValue(existingTask);
     mocks.getTaskRecordById.mockResolvedValue(existingTask);
+    mocks.setTaskReminderOffsets.mockResolvedValue({ ok: true, data: null });
   });
 
   test("createTask ignores any client-provided userId", async () => {
@@ -118,6 +123,16 @@ describe("task actions", () => {
       "server-user-id",
       expect.objectContaining({ tagIds }),
     );
+  });
+
+  test("createTask applies requested reminder offsets after creating the task", async () => {
+    await createTask({
+      title: "Nộp báo cáo",
+      dueAt: "2026-08-26T02:30:00.000Z",
+      reminderOffsets: [1440, 60],
+    });
+
+    expect(mocks.setTaskReminderOffsets).toHaveBeenCalledWith(taskId, [1440, 60]);
   });
 
   test("setTaskStatus sets completed_at when moving to DONE", async () => {
@@ -288,5 +303,25 @@ describe("task actions", () => {
       taskId,
       expect.objectContaining({ tagIds }),
     );
+  });
+
+  test("updateTask refreshes reminder offsets only after the primary task update succeeds", async () => {
+    await updateTask(taskId, {
+      dueAt: "2026-08-26T02:30:00.000Z",
+      reminderOffsets: [60, 0],
+    });
+
+    expect(mocks.setTaskReminderOffsets).toHaveBeenCalledWith(taskId, [60, 0]);
+
+    mocks.updateTaskRecord.mockRejectedValueOnce(new Error("primary update failed"));
+    mocks.setTaskReminderOffsets.mockClear();
+
+    const result = await updateTask(taskId, {
+      dueAt: "2026-08-26T03:30:00.000Z",
+      reminderOffsets: [1440],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(mocks.setTaskReminderOffsets).not.toHaveBeenCalled();
   });
 });

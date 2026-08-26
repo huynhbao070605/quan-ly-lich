@@ -3,11 +3,17 @@
 import { Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 
+import {
+  formatVietnamDateInput,
+  formatVietnamTimeInput,
+  vietnamDateTimeToUtcIso,
+} from "@/lib/domain/time";
 import type { SubtaskRecord } from "@/lib/tasks/subtask-repository";
 import type { TaskPriority, TaskStatus, UpdateTaskInput } from "@/lib/validation/task";
+
+import { ReminderEditor } from "./reminder-editor";
 import { SubtaskList } from "./subtask-list";
 
-type ReminderValue = "NONE" | "AT_START" | "DAY_BEFORE";
 type RecurrenceValue = "NONE" | "DAILY" | "WEEKLY";
 
 type TaskDetailTask = {
@@ -24,6 +30,7 @@ type TaskDetailTask = {
   urgent: boolean;
   eisenhowerOverride: boolean;
   tagIds: string[];
+  reminderOffsets: number[];
 };
 
 type TaskDetailSheetProps = {
@@ -39,17 +46,17 @@ type TaskDetailSheetProps = {
   projects?: Array<{ id: string; name: string }>;
   tags?: Array<{ id: string; name: string }>;
   subtasks?: SubtaskRecord[];
-  reminder?: ReminderValue;
   recurrence?: RecurrenceValue;
   onAddSubtask?: (taskId: string, title: string) => Promise<void> | void;
   onDeleteSubtask?: (subtaskId: string) => Promise<void> | void;
   onReorderSubtasks?: (taskId: string, orderedIds: string[]) => Promise<void> | void;
   onToggleSubtask?: (subtaskId: string, completed: boolean) => Promise<void> | void;
-  onReminderChange?: (taskId: string, value: ReminderValue) => Promise<void> | void;
   onRecurrenceChange?: (taskId: string, value: RecurrenceValue) => Promise<void> | void;
 };
 
 type TaskDetailForm = Omit<TaskDetailTask, "id">;
+
+const DEFAULT_TIME = "09:00";
 
 const priorities: Array<{ label: string; value: TaskPriority }> = [
   { label: "Thấp", value: "LOW" },
@@ -79,15 +86,28 @@ function toForm(task: TaskDetailTask): TaskDetailForm {
     urgent: task.urgent,
     eisenhowerOverride: task.eisenhowerOverride,
     tagIds: task.tagIds,
+    reminderOffsets: task.reminderOffsets,
   };
 }
 
 function toDateValue(value: string | null): string {
-  return value?.slice(0, 10) ?? "";
+  return value === null ? "" : formatVietnamDateInput(new Date(value));
 }
 
-function toDateTime(value: string): string | null {
-  return value === "" ? null : new Date(`${value}T00:00:00.000Z`).toISOString();
+function toTimeValue(value: string | null): string {
+  return value === null ? DEFAULT_TIME : formatVietnamTimeInput(new Date(value));
+}
+
+function toVietnamDateStart(value: string): string | null {
+  return value === "" ? null : vietnamDateTimeToUtcIso(value, "00:00");
+}
+
+function toVietnamDeadline(dateValue: string, timeValue: string, allDay: boolean): string | null {
+  if (dateValue === "") {
+    return null;
+  }
+
+  return vietnamDateTimeToUtcIso(dateValue, allDay ? "00:00" : timeValue);
 }
 
 export function TaskDetailSheet({
@@ -99,18 +119,15 @@ export function TaskDetailSheet({
   projects = [],
   tags = [],
   subtasks = [],
-  reminder = "NONE",
   recurrence = "NONE",
   onAddSubtask,
   onDeleteSubtask,
   onReorderSubtasks,
   onToggleSubtask,
-  onReminderChange,
   onRecurrenceChange,
   task,
 }: TaskDetailSheetProps) {
   const [form, setForm] = useState<TaskDetailForm>(() => toForm(task));
-  const [reminderValue, setReminderValue] = useState<ReminderValue>(reminder);
   const [recurrenceValue, setRecurrenceValue] = useState<RecurrenceValue>(recurrence);
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
@@ -130,6 +147,38 @@ export function TaskDetailSheet({
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function updateStartDate(value: string) {
+    updateField("startAt", toVietnamDateStart(value));
+  }
+
+  function updateDueDate(value: string) {
+    setForm((current) => ({
+      ...current,
+      dueAt: toVietnamDeadline(value, toTimeValue(current.dueAt), current.allDay),
+    }));
+  }
+
+  function updateDueTime(value: string) {
+    if (value === "") {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      dueAt: toVietnamDeadline(toDateValue(current.dueAt), value, current.allDay),
+    }));
+  }
+
+  function updateAllDay(value: boolean) {
+    setForm((current) => ({
+      ...current,
+      allDay: value,
+      dueAt: current.dueAt === null
+        ? null
+        : toVietnamDeadline(toDateValue(current.dueAt), toTimeValue(current.dueAt), value),
+    }));
+  }
+
   function toggleTag(tagId: string) {
     updateField(
       "tagIds",
@@ -137,11 +186,6 @@ export function TaskDetailSheet({
         ? form.tagIds.filter((id) => id !== tagId)
         : [...form.tagIds, tagId],
     );
-  }
-
-  function changeReminder(value: ReminderValue) {
-    setReminderValue(value);
-    void onReminderChange?.(task.id, value);
   }
 
   function changeRecurrence(value: RecurrenceValue) {
@@ -191,6 +235,7 @@ export function TaskDetailSheet({
       dueAt: form.dueAt,
       allDay: form.allDay,
       tagIds: form.tagIds,
+      reminderOffsets: form.reminderOffsets,
     });
 
     if (!updated) return;
@@ -277,17 +322,25 @@ export function TaskDetailSheet({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
               <span className="text-sm font-medium text-slate-700">Ngày bắt đầu</span>
-              <input className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950" onChange={(event) => updateField("startAt", toDateTime(event.target.value))} type="date" value={toDateValue(form.startAt)} />
+              <input className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950" onChange={(event) => updateStartDate(event.target.value)} type="date" value={toDateValue(form.startAt)} />
             </label>
             <label className="space-y-1">
               <span className="text-sm font-medium text-slate-700">Hạn chót</span>
-              <input className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950" onChange={(event) => updateField("dueAt", toDateTime(event.target.value))} type="date" value={toDateValue(form.dueAt)} />
+              <input className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950" onChange={(event) => updateDueDate(event.target.value)} type="date" value={toDateValue(form.dueAt)} />
             </label>
           </div>
-          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <input checked={form.allDay} onChange={(event) => updateField("allDay", event.target.checked)} type="checkbox" />
-            Cả ngày
-          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+              <input checked={form.allDay} onChange={(event) => updateAllDay(event.target.checked)} type="checkbox" />
+              Cả ngày
+            </label>
+            {!form.allDay ? (
+              <label className="space-y-1">
+                <span className="text-sm font-medium text-slate-700">Giờ hạn chót</span>
+                <input className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950" onChange={(event) => updateDueTime(event.target.value)} type="time" value={toTimeValue(form.dueAt)} />
+              </label>
+            ) : null}
+          </div>
           <SubtaskList
             onAdd={onAddSubtask}
             onDelete={onDeleteSubtask}
@@ -297,14 +350,10 @@ export function TaskDetailSheet({
             taskId={task.id}
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Nhắc việc</span>
-              <select className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100" disabled={!onReminderChange} onChange={(event) => changeReminder(event.target.value as ReminderValue)} value={reminderValue}>
-                <option value="NONE">Không nhắc</option>
-                <option value="AT_START">Vào giờ bắt đầu</option>
-                <option value="DAY_BEFORE">Trước hạn một ngày</option>
-              </select>
-            </label>
+            <ReminderEditor
+              onChange={(offsets) => updateField("reminderOffsets", offsets)}
+              value={form.reminderOffsets}
+            />
             <label className="space-y-1">
               <span className="text-sm font-medium text-slate-700">Lặp lại</span>
               <select className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100" disabled={!onRecurrenceChange} onChange={(event) => changeRecurrence(event.target.value as RecurrenceValue)} value={recurrenceValue}>

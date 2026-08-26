@@ -11,6 +11,7 @@ export const taskPrioritySchema = z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]);
 
 const taskIdSchema = z.uuid();
 const taskDateTimeSchema = z.string().datetime({ offset: true });
+const reminderOffsetsSchema = z.array(z.number().int().min(0).max(43200)).max(8);
 
 const taskFieldsSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -22,6 +23,7 @@ const taskFieldsSchema = z.object({
   dueAt: taskDateTimeSchema.nullable().optional(),
   allDay: z.boolean().optional(),
   tagIds: z.array(taskIdSchema).optional(),
+  reminderOffsets: reminderOffsetsSchema.optional(),
 });
 
 export const createTaskSchema = taskFieldsSchema;

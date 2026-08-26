@@ -38,7 +38,7 @@ describe("createTaskSchema", () => {
     ).toBe(false);
   });
 
-  test("accepts optional task fields and tag IDs", () => {
+  test("accepts optional task fields, tag IDs, and reminder offsets", () => {
     const result = createTaskSchema.safeParse({
       title: "Nộp báo cáo",
       projectId,
@@ -49,9 +49,19 @@ describe("createTaskSchema", () => {
       dueAt: "2026-08-21T10:00:00.000Z",
       allDay: false,
       tagIds: [tagId],
+      reminderOffsets: [1440, 60, 0],
     });
 
     expect(result.success).toBe(true);
+  });
+
+  test("rejects invalid reminder offsets", () => {
+    expect(
+      createTaskSchema.safeParse({
+        title: "Nộp báo cáo",
+        reminderOffsets: [1440, -1],
+      }).success,
+    ).toBe(false);
   });
 
   test("strips derived Eisenhower and Focus fields from generic create input", () => {
@@ -74,6 +84,7 @@ describe("updateTaskSchema", () => {
       title: "Nộp báo cáo đã sửa",
       dueAt: "2026-08-22T10:00:00.000Z",
       tagIds: [tagId],
+      reminderOffsets: [60, 0],
     });
 
     expect(result.success).toBe(true);

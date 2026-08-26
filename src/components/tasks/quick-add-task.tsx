@@ -3,9 +3,13 @@
 import { Plus } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
 
+import { vietnamDateTimeToUtcIso } from "@/lib/domain/time";
 import type { CreateTaskInput, TaskPriority } from "@/lib/validation/task";
 
+import { ReminderEditor } from "./reminder-editor";
+
 type QuickAddTaskProps = {
+  initialReminderOffsets?: number[];
   onCreate: (input: CreateTaskInput) => Promise<void> | void;
   projects?: Array<{ id: string; name: string }>;
 };
@@ -17,15 +21,29 @@ const priorities: Array<{ label: string; value: TaskPriority }> = [
   { label: "Khẩn cấp", value: "URGENT" },
 ];
 
-export function QuickAddTask({ onCreate, projects = [] }: QuickAddTaskProps) {
+export function QuickAddTask({
+  initialReminderOffsets = [],
+  onCreate,
+  projects = [],
+}: QuickAddTaskProps) {
   const [allDay, setAllDay] = useState(true);
-  const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [dueTime, setDueTime] = useState("09:00");
   const [expanded, setExpanded] = useState(false);
   const [isComposing, setIsComposing] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
   const [projectId, setProjectId] = useState("");
+  const [reminderOffsets, setReminderOffsets] = useState(initialReminderOffsets);
   const [title, setTitle] = useState("");
+
+  function buildDueAt(): string | undefined {
+    if (dueDate === "") {
+      return undefined;
+    }
+
+    return vietnamDateTimeToUtcIso(dueDate, allDay ? "00:00" : dueTime) ?? undefined;
+  }
 
   async function submit() {
     const trimmedTitle = title.trim();
@@ -37,10 +55,11 @@ export function QuickAddTask({ onCreate, projects = [] }: QuickAddTaskProps) {
     await onCreate({
       title: trimmedTitle,
       priority,
-      dueAt: date === "" ? undefined : new Date(date).toISOString(),
+      dueAt: buildDueAt(),
       projectId: projectId === "" ? undefined : projectId,
       description: description.trim() === "" ? undefined : description.trim(),
       allDay,
+      reminderOffsets,
     });
     setTitle("");
   }
@@ -74,12 +93,12 @@ export function QuickAddTask({ onCreate, projects = [] }: QuickAddTaskProps) {
         </label>
 
         <label className="space-y-1">
-          <span className="text-sm font-medium text-slate-700">Ngày</span>
+          <span className="text-sm font-medium text-slate-700">Hạn chót</span>
           <input
             className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-            onChange={(event) => setDate(event.target.value)}
+            onChange={(event) => setDueDate(event.target.value)}
             type="date"
-            value={date}
+            value={dueDate}
           />
         </label>
 
@@ -146,6 +165,22 @@ export function QuickAddTask({ onCreate, projects = [] }: QuickAddTaskProps) {
             />
             <span className="text-sm font-medium text-slate-700">Cả ngày</span>
           </label>
+
+          {!allDay ? (
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Giờ hạn chót</span>
+              <input
+                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                onChange={(event) => setDueTime(event.target.value)}
+                type="time"
+                value={dueTime}
+              />
+            </label>
+          ) : null}
+
+          <div className="md:col-span-2">
+            <ReminderEditor onChange={setReminderOffsets} value={reminderOffsets} />
+          </div>
 
           <label className="space-y-1 md:col-span-2">
             <span className="text-sm font-medium text-slate-700">Mô tả</span>

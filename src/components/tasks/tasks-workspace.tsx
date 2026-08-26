@@ -39,6 +39,7 @@ export type TasksWorkspaceTask = Omit<
   important: boolean;
   urgent: boolean;
   eisenhowerOverride: boolean;
+  reminderOffsets: number[];
   tagIds: string[];
   subtasks: SubtaskRecord[];
 };
@@ -52,12 +53,14 @@ type TasksWorkspaceProps = {
     tagId?: string;
   };
   initialTaskId: string | null;
+  defaultReminderOffsets?: number[];
   projects: Option[];
   tags: Option[];
   tasks: TasksWorkspaceTask[];
 };
 
 export function TasksWorkspace({
+  defaultReminderOffsets = [],
   filterValues,
   initialTaskId,
   projects,
@@ -167,7 +170,13 @@ export function TasksWorkspace({
         </form>
       ) : null}
 
-      {showQuickAdd ? <QuickAddTask onCreate={handleCreate} projects={projects} /> : null}
+      {showQuickAdd ? (
+        <QuickAddTask
+          initialReminderOffsets={defaultReminderOffsets}
+          onCreate={handleCreate}
+          projects={projects}
+        />
+      ) : null}
 
       {error ? (
         <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700" role="status">
