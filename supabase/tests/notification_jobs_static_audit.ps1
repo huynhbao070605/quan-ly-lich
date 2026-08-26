@@ -24,6 +24,9 @@ Assert-MigrationPattern `
 Assert-MigrationPattern `
   '(?s)create unique index notifications_user_dedupe_key_unique.*?on public\.notifications \(user_id, dedupe_key\).*?where dedupe_key is not null' `
   'notifications must have a partial unique index on user_id and dedupe_key.'
+Assert-MigrationPattern `
+  '(?s)insert into public\.user_settings\s*\(\s*user_id\s*\).*?from auth\.users.*?on conflict \(user_id\) do nothing' `
+  'Notification jobs must backfill user_settings for users that existed before the settings trigger.'
 
 foreach ($fn in @(
   'process_due_reminders',
@@ -45,6 +48,9 @@ Assert-MigrationPattern `
 Assert-MigrationPattern `
   '(?s)process_overdue_notifications\(\).*?notify_overdue = true.*?OVERDUE.*?on conflict \(user_id, dedupe_key\) where dedupe_key is not null do nothing' `
   'Overdue job must honor settings and dedupe per task occurrence.'
+Assert-MigrationPattern `
+  '(?s)process_overdue_notifications\(\).*?left join public\.user_settings.*?coalesce\(s\.notify_overdue, true\) = true.*?OVERDUE.*?on conflict \(user_id, dedupe_key\) where dedupe_key is not null do nothing' `
+  'Overdue job must still process existing users whose user_settings row is missing while honoring explicit opt-out rows.'
 Assert-MigrationPattern `
   '(?s)process_recurring_occurrences\(\).*?recurrence_series.*?on conflict \(recurrence_series_id, occurrence_start_at\).*?do nothing.*?RECURRING_CREATED' `
   'Recurring job must materialize occurrences idempotently and create recurring notifications.'

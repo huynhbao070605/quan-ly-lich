@@ -1,0 +1,63 @@
+insert into public.user_settings (user_id)
+select u.id
+from auth.users as u
+where not exists (
+  select 1
+  from public.user_settings as s
+  where s.user_id = u.id
+)
+on conflict (user_id) do nothing;
+
+create or replace function public.process_overdue_notifications()
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_inserted integer;
+begin
+  with overdue_tasks as (
+    select
+      t.id,
+      t.user_id,
+      t.title,
+      coalesce(
+        'overdue:' || t.recurrence_series_id::text || ':' || t.occurrence_start_at::text,
+        'overdue:' || t.id::text
+      ) as dedupe_key
+    from public.tasks t
+    left join public.user_settings s
+      on s.user_id = t.user_id
+    where t.due_at < now()
+      and t.status in ('TODO', 'IN_PROGRESS')
+      and coalesce(s.notify_overdue, true) = true
+  ),
+  inserted as (
+    insert into public.notifications (
+      user_id,
+      task_id,
+      type,
+      title,
+      message,
+      dedupe_key
+    )
+    select
+      user_id,
+      id,
+      'OVERDUE',
+      'Công việc quá hạn',
+      'Đã quá hạn: ' || title,
+      dedupe_key
+    from overdue_tasks
+    on conflict (user_id, dedupe_key) where dedupe_key is not null do nothing
+    returning id
+  )
+  select count(*) into v_inserted from inserted;
+
+  return v_inserted;
+end;
+$$;
+
+revoke all on function public.process_overdue_notifications() from public;
+grant execute on function public.process_overdue_notifications() to authenticated;
