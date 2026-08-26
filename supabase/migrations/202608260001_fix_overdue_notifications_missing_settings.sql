@@ -15,6 +15,8 @@ security definer
 set search_path = public
 as $$
 declare
+  v_today date := (now() at time zone 'Asia/Ho_Chi_Minh')::date;
+  v_today_start timestamptz := v_today::timestamp at time zone 'Asia/Ho_Chi_Minh';
   v_inserted integer;
 begin
   with overdue_tasks as (
@@ -29,7 +31,11 @@ begin
     from public.tasks t
     left join public.user_settings s
       on s.user_id = t.user_id
-    where t.due_at < now()
+    where t.due_at is not null
+      and (
+        (t.all_day = true and t.due_at < v_today_start)
+        or (t.all_day = false and t.due_at < now())
+      )
       and t.status in ('TODO', 'IN_PROGRESS')
       and coalesce(s.notify_overdue, true) = true
   ),
@@ -60,4 +66,6 @@ end;
 $$;
 
 revoke all on function public.process_overdue_notifications() from public;
-grant execute on function public.process_overdue_notifications() to authenticated;
+revoke all on function public.process_overdue_notifications() from anon;
+revoke all on function public.process_overdue_notifications() from authenticated;
+grant execute on function public.process_overdue_notifications() to postgres;
