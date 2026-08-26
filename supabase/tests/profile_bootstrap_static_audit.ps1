@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$migrationPath = Join-Path $PSScriptRoot '..\migrations\202608200003_profile_bootstrap.sql'
+$migrationPath = Join-Path $PSScriptRoot '..\migrations\202608200004_profile_bootstrap.sql'
 
 if (-not (Test-Path $migrationPath)) {
   throw 'Profile bootstrap migration is missing.'

@@ -34,7 +34,25 @@ const tagId = "00000000-0000-4000-8000-000000000030";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireUser.mockResolvedValue({ id: "server-user-id" });
-  mocks.createServerClient.mockResolvedValue({ from: vi.fn() });
+
+  const settingsBuilder = {
+    eq() {
+      return settingsBuilder;
+    },
+    maybeSingle() {
+      return Promise.resolve({
+        data: { default_reminder_offsets_minutes: [1440, 0] },
+        error: null,
+      });
+    },
+    select() {
+      return settingsBuilder;
+    },
+  };
+
+  mocks.createServerClient.mockResolvedValue({
+    from: vi.fn((table: string) => table === "user_settings" ? settingsBuilder : undefined),
+  });
   mocks.listTasks.mockResolvedValue({
     data: [{
       id: taskId,
@@ -51,6 +69,7 @@ beforeEach(() => {
       eisenhower_override: false,
       projects: { id: projectId, name: "Công việc" },
       task_tags: [{ tags: { id: tagId, name: "Gấp" } }],
+      task_reminders: [{ offset_minutes: 60 }],
       subtasks: [],
     }],
   });
@@ -88,4 +107,5 @@ test("applies URL filters, loads options, and opens a taskId deep link", async (
   expect(within(filters).getByLabelText("Dự án")).toHaveValue(projectId);
   expect(within(filters).getByLabelText("Thẻ")).toHaveValue(tagId);
   expect(screen.getByRole("dialog", { name: "Chi tiết công việc" })).toBeVisible();
+  expect(screen.getByLabelText("1 giờ trước")).toBeChecked();
 });
