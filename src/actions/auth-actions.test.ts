@@ -22,6 +22,7 @@ import {
 
 const appUrl = "https://app.example.vn";
 const callbackUrl = `${appUrl}/auth/callback`;
+const googleOAuthError = "Không thể đăng nhập bằng Google. Vui lòng thử lại sau.";
 
 function createAuthClient(overrides = {}) {
   return {
@@ -123,6 +124,29 @@ describe("authentication server actions", () => {
       provider: "google",
       options: { redirectTo: callbackUrl },
     });
+  });
+
+  test("returns a Vietnamese Google OAuth error when app URL is missing", async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+
+    const result = await signInWithGoogle();
+
+    expect(result).toEqual({ ok: false, message: googleOAuthError });
+    expect(mocks.createServerClient).not.toHaveBeenCalled();
+  });
+
+  test("returns a Vietnamese Google OAuth error when Supabase cannot create an OAuth URL", async () => {
+    const auth = createAuthClient({
+      signInWithOAuth: vi.fn().mockResolvedValue({
+        data: { url: null },
+        error: new Error("provider not configured"),
+      }),
+    });
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    const result = await signInWithGoogle();
+
+    expect(result).toEqual({ ok: false, message: googleOAuthError });
   });
 
   test("rejects an invalid password reset email without calling Supabase", async () => {

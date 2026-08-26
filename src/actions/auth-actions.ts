@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+
 import { createServerClient } from "@/lib/supabase/server";
 import {
   passwordResetSchema,
@@ -12,6 +13,11 @@ import {
 export type AuthActionResult = {
   ok: boolean;
   message: string;
+};
+
+const googleOAuthFailure: AuthActionResult = {
+  ok: false,
+  message: "Không thể đăng nhập bằng Google. Vui lòng thử lại sau.",
 };
 
 function formDataToObject(formData: FormData) {
@@ -91,22 +97,28 @@ export async function signInWithEmail(formData: FormData): Promise<AuthActionRes
 }
 
 export async function signInWithGoogle(): Promise<AuthActionResult> {
-  const supabase = await createServerClient();
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: getCallbackUrl(),
-    },
-  });
+  let oauthUrl: string | null = null;
 
-  if (error || !data.url) {
-    return {
-      ok: false,
-      message: "Không thể đăng nhập bằng Google. Vui lòng thử lại sau.",
-    };
+  try {
+    const redirectTo = getCallbackUrl();
+    const supabase = await createServerClient();
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (error || !data.url) {
+      return googleOAuthFailure;
+    }
+
+    oauthUrl = data.url;
+  } catch {
+    return googleOAuthFailure;
   }
 
-  redirect(data.url);
+  redirect(oauthUrl);
 }
 
 export async function signOut(): Promise<AuthActionResult> {
