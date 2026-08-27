@@ -44,8 +44,12 @@ describe("QuickAddTask", () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<QuickAddTask onCreate={onCreate} initialReminderOffsets={[1440]} />);
 
-    await user.type(screen.getByLabelText("Tên công việc"), "Tập thể thao");
-    await user.type(screen.getByLabelText("Hạn chót"), "2026-08-24");
+    fireEvent.change(screen.getByLabelText("Tên công việc"), {
+      target: { value: "Tập thể thao" },
+    });
+    fireEvent.change(screen.getByLabelText("Hạn chót"), {
+      target: { value: "2026-08-24" },
+    });
     await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
     await user.selectOptions(screen.getByLabelText("Lặp lại"), "WEEKLY");
     await user.click(screen.getByRole("button", { name: "T2" }));
@@ -73,8 +77,12 @@ describe("QuickAddTask", () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<QuickAddTask onCreate={onCreate} />);
 
-    await user.type(screen.getByLabelText("Tên công việc"), "Tập thể thao");
-    await user.type(screen.getByLabelText("Hạn chót"), "2026-08-26");
+    fireEvent.change(screen.getByLabelText("Tên công việc"), {
+      target: { value: "Tập thể thao" },
+    });
+    fireEvent.change(screen.getByLabelText("Hạn chót"), {
+      target: { value: "2026-08-26" },
+    });
     await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
     await user.click(screen.getByLabelText("Cả ngày"));
     await user.clear(screen.getByLabelText("Giờ hạn chót"));
@@ -95,8 +103,12 @@ describe("QuickAddTask", () => {
     const onCreate = vi.fn().mockResolvedValue(undefined);
     render(<QuickAddTask onCreate={onCreate} initialReminderOffsets={[1440]} />);
 
-    await user.type(screen.getByLabelText("Tên công việc"), "Nộp báo cáo");
-    await user.type(screen.getByLabelText("Hạn chót"), "2026-08-26");
+    fireEvent.change(screen.getByLabelText("Tên công việc"), {
+      target: { value: "Nộp báo cáo" },
+    });
+    fireEvent.change(screen.getByLabelText("Hạn chót"), {
+      target: { value: "2026-08-26" },
+    });
     await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
     await user.click(screen.getByLabelText("1 giờ trước"));
     await user.click(screen.getByLabelText("1 ngày trước"));

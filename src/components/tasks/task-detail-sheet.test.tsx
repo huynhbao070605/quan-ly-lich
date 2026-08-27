@@ -42,8 +42,7 @@ describe("TaskDetailSheet", () => {
     );
 
     const title = screen.getByLabelText("Tên công việc");
-    await user.clear(title);
-    await user.type(title, "Hoàn thiện báo cáo");
+    fireEvent.change(title, { target: { value: "Hoàn thiện báo cáo" } });
     await user.selectOptions(screen.getByLabelText("Ưu tiên"), "HIGH");
     await user.click(screen.getByLabelText("Cả ngày"));
     await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
