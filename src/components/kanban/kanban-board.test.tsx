@@ -83,6 +83,28 @@ describe("KanbanBoard", () => {
     expect(cards.map((task) => task.id)).toEqual(["normal", "series-a-27"]);
   });
 
+  test("selects the real occurrence id for a recurring Kanban card that starts today", () => {
+    const cards = getKanbanBoardTasks([
+      {
+        ...baseTask,
+        id: "zzz-series-a-starts-today",
+        dueAt: "2026-08-28T02:00:00.000Z",
+        occurrenceStartAt: "2026-08-27T01:00:00.000Z",
+        recurrenceSeriesId: "series-a",
+      },
+      {
+        ...baseTask,
+        id: "aaa-series-a-starts-tomorrow",
+        dueAt: "2026-08-28T02:00:00.000Z",
+        occurrenceStartAt: "2026-08-28T01:00:00.000Z",
+        recurrenceSeriesId: "series-a",
+      },
+    ], now);
+
+    expect(cards.map((task) => task.id)).toEqual(["zzz-series-a-starts-today"]);
+    expect(cards.map((task) => task.id)).not.toContain("series-a");
+  });
+
   test("builds today's Kanban priority distribution without future recurrence inflation", () => {
     const data = getTodayPriorityBreakdown([
       {

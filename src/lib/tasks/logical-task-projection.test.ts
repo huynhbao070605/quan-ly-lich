@@ -118,6 +118,25 @@ describe("logical task projection", () => {
     expect(projected).toHaveLength(2);
   });
 
+  test("uses occurrence_start_at before due_at to identify today's recurring occurrence", () => {
+    const projected = getTodayLogicalTasks([
+      task({
+        id: "starts-today-due-tomorrow",
+        dueAt: "2026-08-28T02:00:00.000Z",
+        occurrenceStartAt: "2026-08-27T01:00:00.000Z",
+        recurrenceSeriesId: "series-a",
+      }),
+      task({
+        id: "starts-tomorrow",
+        dueAt: "2026-08-28T02:00:00.000Z",
+        occurrenceStartAt: "2026-08-28T01:00:00.000Z",
+        recurrenceSeriesId: "series-a",
+      }),
+    ], now);
+
+    expect(projected.map((item) => item.id)).toEqual(["starts-today-due-tomorrow"]);
+  });
+
   test("interprets today using the Vietnam day at UTC boundaries", () => {
     const projected = getTodayLogicalTasks([
       task({

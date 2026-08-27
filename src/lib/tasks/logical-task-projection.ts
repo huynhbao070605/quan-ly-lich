@@ -22,9 +22,9 @@ function isOpenTask(task: LogicalTaskProjectionInput): boolean {
 
 function taskDate(task: LogicalTaskProjectionInput): Date | null {
   const value =
-    task.dueAt ??
-    task.startAt ??
-    task.occurrenceStartAt ??
+    (task.recurrenceSeriesId
+      ? task.occurrenceStartAt ?? task.startAt ?? task.dueAt
+      : task.dueAt ?? task.startAt) ??
     task.completedAt ??
     null;
 
