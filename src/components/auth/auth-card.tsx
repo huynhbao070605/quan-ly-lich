@@ -64,6 +64,7 @@ export function AuthCard({ mode }: AuthCardProps) {
     initialState,
   );
   const pageContent = content[mode];
+  const showEmailConfirmation = isSignup && state.status === "emailConfirmationRequired";
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-10">
@@ -141,7 +142,16 @@ export function AuthCard({ mode }: AuthCardProps) {
           >
             {pageContent.submitLabel}
           </button>
-          {state.message && (
+          {showEmailConfirmation && (
+            <section
+              className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900"
+              role="alert"
+            >
+              <h2 className="font-semibold text-emerald-950">Kiểm tra email của bạn</h2>
+              <p className="mt-1">{state.message}</p>
+            </section>
+          )}
+          {state.message && !showEmailConfirmation && (
             <p
               className={`text-sm ${state.ok ? "text-emerald-700" : "text-red-700"}`}
               role="alert"

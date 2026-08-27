@@ -13,6 +13,7 @@ import {
 export type AuthActionResult = {
   ok: boolean;
   message: string;
+  status?: "emailConfirmationRequired";
 };
 
 const googleOAuthFailure: AuthActionResult = {
@@ -51,7 +52,7 @@ export async function signUpWithEmail(formData: FormData): Promise<AuthActionRes
   }
 
   const supabase = await createServerClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -67,9 +68,14 @@ export async function signUpWithEmail(formData: FormData): Promise<AuthActionRes
     };
   }
 
+  if (data?.session) {
+    redirect("/app/tong-quan");
+  }
+
   return {
     ok: true,
-    message: "Đăng ký thành công. Vui lòng kiểm tra email để xác nhận tài khoản.",
+    status: "emailConfirmationRequired",
+    message: "Kiểm tra email của bạn. Chúng tôi đã gửi liên kết xác nhận đến email bạn vừa đăng ký.",
   };
 }
 

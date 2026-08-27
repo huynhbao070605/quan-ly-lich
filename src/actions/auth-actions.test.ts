@@ -26,7 +26,10 @@ const googleOAuthError = "Không thể đăng nhập bằng Google. Vui lòng th
 
 function createAuthClient(overrides = {}) {
   return {
-    signUp: vi.fn().mockResolvedValue({ error: null }),
+    signUp: vi.fn().mockResolvedValue({
+      data: { user: { id: "new-user-id" }, session: null },
+      error: null,
+    }),
     signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
     signInWithOAuth: vi.fn().mockResolvedValue({
       data: { url: "https://accounts.google.com/o/oauth2/auth" },
@@ -55,7 +58,7 @@ describe("authentication server actions", () => {
     vi.clearAllMocks();
   });
 
-  test("sends a sign-up payload with the canonical email callback URL", async () => {
+  test("returns an email-confirmation-required state when sign-up creates no session", async () => {
     const auth = createAuthClient();
     mocks.createServerClient.mockResolvedValue({ auth });
 
@@ -69,7 +72,8 @@ describe("authentication server actions", () => {
 
     expect(result).toEqual({
       ok: true,
-      message: "Đăng ký thành công. Vui lòng kiểm tra email để xác nhận tài khoản.",
+      status: "emailConfirmationRequired",
+      message: "Kiểm tra email của bạn. Chúng tôi đã gửi liên kết xác nhận đến email bạn vừa đăng ký.",
     });
     expect(auth.signUp).toHaveBeenCalledWith({
       email: "an@example.com",
@@ -78,6 +82,47 @@ describe("authentication server actions", () => {
         data: { full_name: "An" },
         emailRedirectTo: callbackUrl,
       },
+    });
+  });
+
+  test("redirects to the app when sign-up returns an authenticated session", async () => {
+    const auth = createAuthClient({
+      signUp: vi.fn().mockResolvedValue({
+        data: { user: { id: "new-user-id" }, session: { access_token: "token" } },
+        error: null,
+      }),
+    });
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    await expect(signUpWithEmail(
+      formData({
+        displayName: "An",
+        email: "an@example.com",
+        password: "12345678",
+      }),
+    )).rejects.toThrow("redirect:/app/tong-quan");
+  });
+
+  test("returns a Vietnamese error when sign-up is rejected", async () => {
+    const auth = createAuthClient({
+      signUp: vi.fn().mockResolvedValue({
+        data: { user: null, session: null },
+        error: new Error("signup disabled"),
+      }),
+    });
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    const result = await signUpWithEmail(
+      formData({
+        displayName: "An",
+        email: "an@example.com",
+        password: "12345678",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Không thể đăng ký. Vui lòng thử lại sau.",
     });
   });
 

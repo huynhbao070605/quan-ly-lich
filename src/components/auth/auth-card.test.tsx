@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -45,5 +45,26 @@ describe("AuthCard", () => {
     expect(
       await screen.findByRole("alert"),
     ).toHaveTextContent("Không thể đăng nhập. Vui lòng kiểm tra email và mật khẩu.");
+  });
+
+  test("renders a clear email confirmation state after sign-up without a session", async () => {
+    mocks.signUpWithEmail.mockResolvedValue({
+      ok: true,
+      status: "emailConfirmationRequired",
+      message: "Kiểm tra email của bạn. Chúng tôi đã gửi liên kết xác nhận đến email bạn vừa đăng ký.",
+    });
+
+    render(<AuthCard mode="signup" />);
+    fireEvent.change(screen.getByLabelText("Họ và tên"), { target: { value: "An" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "an@example.com" } });
+    fireEvent.change(screen.getByLabelText("Mật khẩu"), { target: { value: "12345678" } });
+    fireEvent.click(screen.getByRole("button", { name: "Đăng ký" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Kiểm tra email của bạn" }),
+    ).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Chúng tôi đã gửi liên kết xác nhận đến email bạn vừa đăng ký.",
+    );
   });
 });
