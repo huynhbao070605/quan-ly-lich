@@ -3,14 +3,17 @@ import { TaskCalendar, type CalendarTask } from "@/components/calendar/task-cale
 import { requireUser } from "@/lib/auth/require-user";
 import { createServerClient } from "@/lib/supabase/server";
 import { listTasks } from "@/lib/tasks/task-queries";
+import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 type CalendarTaskRow = {
   all_day: boolean;
   due_at: string | null;
   id: string;
   occurrence_start_at: string | null;
+  priority: TaskPriority;
   recurrence_series_id: string | null;
   start_at: string | null;
+  status: TaskStatus;
   task_reminders?: Array<{ offset_minutes: number }>;
   title: string;
 };
@@ -24,7 +27,9 @@ function mapTask(row: CalendarTaskRow): CalendarTask {
     reminderOffsets: [...new Set(
       (row.task_reminders ?? []).map((reminder) => reminder.offset_minutes),
     )].toSorted((a, b) => b - a),
+    priority: row.priority,
     startAt: row.start_at ?? row.occurrence_start_at,
+    status: row.status,
     title: row.title,
   };
 }

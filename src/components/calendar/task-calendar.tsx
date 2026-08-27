@@ -5,9 +5,12 @@ import interactionPlugin from "@fullcalendar/interaction";
 import type { EventInput } from "@fullcalendar/core";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { RecurrenceEditDialog } from "@/components/calendar/recurrence-edit-dialog";
+import { getStatusPresentation } from "@/lib/domain/task-display";
+import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 import { CalendarAgendaMobile } from "./calendar-agenda-mobile";
 
 export type CalendarTask = {
@@ -17,6 +20,8 @@ export type CalendarTask = {
   recurrenceSeriesId: string | null;
   reminderOffsets: number[];
   startAt: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
   title: string;
 };
 
@@ -75,15 +80,27 @@ function getEventPayload(event: {
 export function mapTasksToCalendarEvents(tasks: CalendarTask[]): EventInput[] {
   return tasks.map((task) => ({
     allDay: task.allDay,
+    classNames: [getStatusPresentation(task.status).calendarClassName],
     end: task.dueAt ?? undefined,
     extendedProps: {
+      priority: task.priority,
       recurrenceSeriesId: task.recurrenceSeriesId,
       reminderOffsets: task.reminderOffsets,
+      status: task.status,
     },
     id: task.id,
     start: task.startAt ?? task.dueAt ?? undefined,
     title: task.title,
   }));
+}
+
+function calendarSummary(tasks: CalendarTask[]) {
+  return {
+    total: tasks.length,
+    done: tasks.filter((task) => task.status === "DONE").length,
+    inProgress: tasks.filter((task) => task.status === "IN_PROGRESS").length,
+    todo: tasks.filter((task) => task.status === "TODO").length,
+  };
 }
 
 export function TaskCalendar({
@@ -93,6 +110,7 @@ export function TaskCalendar({
   tasks,
 }: TaskCalendarProps) {
   const calendarRef = useRef<FullCalendar | null>(null);
+  const summary = calendarSummary(tasks);
   const [view, setView] = useState("dayGridMonth");
   const [pendingChange, setPendingChange] = useState<PendingCalendarChange | null>(null);
 
@@ -103,6 +121,14 @@ export function TaskCalendar({
 
   function goToday() {
     calendarRef.current?.getApi().today();
+  }
+
+  function goPrevious() {
+    calendarRef.current?.getApi().prev();
+  }
+
+  function goNext() {
+    calendarRef.current?.getApi().next();
   }
 
   async function applyOrRollback(
@@ -131,25 +157,57 @@ export function TaskCalendar({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        {views.map((item) => (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            aria-pressed={view === item.value}
-            className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 aria-pressed:border-teal-600 aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
-            key={item.value}
-            onClick={() => changeView(item.value)}
+            aria-label="Tháng trước"
+            className="inline-flex size-9 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+            onClick={goPrevious}
             type="button"
           >
-            {item.label}
+            <ChevronLeft aria-hidden="true" className="size-4" />
           </button>
+          <button
+            aria-label="Tháng sau"
+            className="inline-flex size-9 items-center justify-center rounded-md border border-slate-300 text-slate-700 hover:bg-slate-50"
+            onClick={goNext}
+            type="button"
+          >
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </button>
+          {views.map((item) => (
+            <button
+              aria-pressed={view === item.value}
+              className="h-9 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 aria-pressed:border-teal-600 aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
+              key={item.value}
+              onClick={() => changeView(item.value)}
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+          <button
+            className="h-9 rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800"
+            onClick={goToday}
+            type="button"
+          >
+            Hôm nay
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          { label: "Tổng công việc", value: summary.total },
+          { label: "Hoàn thành", value: summary.done },
+          { label: "Đang thực hiện", value: summary.inProgress },
+          { label: "Cần làm", value: summary.todo },
+        ].map((item) => (
+          <article className="rounded-md border border-slate-200 bg-white p-3" key={item.label}>
+            <p className="text-xs font-medium text-slate-500">{item.label}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950">{item.value}</p>
+          </article>
         ))}
-        <button
-          className="h-9 rounded-md bg-slate-900 px-3 text-sm font-medium text-white hover:bg-slate-800"
-          onClick={goToday}
-          type="button"
-        >
-          Hôm nay
-        </button>
       </div>
 
       <CalendarAgendaMobile onSelectTask={onSelectTask} tasks={tasks} />
@@ -165,6 +223,19 @@ export function TaskCalendar({
           }}
           editable
           eventClick={(info) => onSelectTask?.(info.event.id)}
+          eventContent={(info) => {
+            const status = info.event.extendedProps.status as TaskStatus | undefined;
+            const statusLabel = status ? getStatusPresentation(status).label : "";
+
+            return (
+              <span className="flex min-w-0 flex-col gap-0.5">
+                <span className="truncate font-medium">{info.event.title}</span>
+                {statusLabel ? (
+                  <span className="truncate text-[10px] opacity-80">{statusLabel}</span>
+                ) : null}
+              </span>
+            );
+          }}
           eventDrop={async (info) => {
             const payload = getEventPayload(info.event);
             const apply = () => applyOrRollback(

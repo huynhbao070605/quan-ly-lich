@@ -14,10 +14,12 @@ import {
   arrayMove,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { moveTaskBetweenColumns, reorderColumn } from "@/actions/kanban-actions";
 import { TASK_STATUS_LABELS } from "@/lib/domain/constants";
-import type { TaskStatus } from "@/lib/validation/task";
+import { getPriorityPresentation } from "@/lib/domain/task-display";
+import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 import { KanbanColumn } from "./kanban-column";
 import type { KanbanTask } from "./task-card";
@@ -29,6 +31,7 @@ type KanbanBoardProps = {
 type BoardColumns = Record<TaskStatus, KanbanTask[]>;
 
 const statuses: TaskStatus[] = ["TODO", "IN_PROGRESS", "DONE", "CANCELLED"];
+const priorities: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
 function createColumns(tasks: KanbanTask[]): BoardColumns {
   return statuses.reduce((columns, status) => {
@@ -61,11 +64,27 @@ function withRecomputedPositions(tasks: KanbanTask[]): KanbanTask[] {
   return tasks.map((task, index) => ({ ...task, position: index }));
 }
 
+export function getPriorityBreakdown(tasks: KanbanTask[]) {
+  return priorities.map((priority) => {
+    const presentation = getPriorityPresentation(priority);
+
+    return {
+      priority,
+      label: presentation.label,
+      count: tasks.filter((task) => task.priority === priority).length,
+      color: presentation.chartColor,
+    };
+  });
+}
+
 export function KanbanBoard({ tasks }: KanbanBoardProps) {
   const initialColumns = useMemo(() => createColumns(tasks), [tasks]);
   const [columns, setColumns] = useState<BoardColumns>(initialColumns);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const priorityBreakdown = getPriorityBreakdown(
+    statuses.flatMap((status) => columns[status]),
+  );
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -166,6 +185,54 @@ export function KanbanBoard({ tasks }: KanbanBoardProps) {
           {error}
         </div>
       ) : null}
+
+      <section className="rounded-md border border-slate-200 bg-white p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-slate-950">Phân bố ưu tiên</h2>
+          <span className="text-xs text-slate-500">
+            Theo công việc đang hiển thị
+          </span>
+        </div>
+        <div className="mt-3 grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)] md:items-center">
+          <div className="h-44">
+            <ResponsiveContainer height="100%" width="100%">
+              <PieChart>
+                <Pie
+                  data={priorityBreakdown}
+                  dataKey="count"
+                  innerRadius={46}
+                  nameKey="label"
+                  outerRadius={70}
+                  paddingAngle={2}
+                >
+                  {priorityBreakdown.map((item) => (
+                    <Cell fill={item.color} key={item.priority} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name) => [`${value} công việc`, name]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {priorityBreakdown.map((item) => (
+              <div
+                className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm"
+                key={item.priority}
+              >
+                <span className="flex items-center gap-2 text-slate-700">
+                  <span
+                    aria-hidden="true"
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  {item.label}
+                </span>
+                <span className="font-semibold text-slate-950">{item.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       <DndContext
         collisionDetection={closestCorners}

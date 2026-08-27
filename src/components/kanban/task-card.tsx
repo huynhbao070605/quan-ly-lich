@@ -4,7 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CalendarDays, GripVertical } from "lucide-react";
 
-import { TASK_PRIORITY_LABELS } from "@/lib/domain/constants";
+import { getPriorityPresentation } from "@/lib/domain/task-display";
 import { formatVietnamDateTime } from "@/lib/domain/time";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
@@ -23,6 +23,7 @@ type TaskCardProps = {
 };
 
 export function TaskCard({ task }: TaskCardProps) {
+  const priority = getPriorityPresentation(task.priority);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
       id: task.id,
@@ -55,8 +56,8 @@ export function TaskCard({ task }: TaskCardProps) {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-xs">
-        <span className="rounded-md bg-teal-50 px-2 py-1 font-medium text-teal-700">
-          {TASK_PRIORITY_LABELS[task.priority]}
+        <span className={`rounded-md border px-2 py-1 font-medium ${priority.badgeClassName}`}>
+          {priority.label}
         </span>
         {task.project ? (
           <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">

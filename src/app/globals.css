@@ -24,3 +24,28 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.calendar-event--todo {
+  --fc-event-bg-color: #f8fafc;
+  --fc-event-border-color: #cbd5e1;
+  --fc-event-text-color: #334155;
+}
+
+.calendar-event--in-progress {
+  --fc-event-bg-color: #e0f2fe;
+  --fc-event-border-color: #38bdf8;
+  --fc-event-text-color: #075985;
+}
+
+.calendar-event--done {
+  --fc-event-bg-color: #dcfce7;
+  --fc-event-border-color: #22c55e;
+  --fc-event-text-color: #166534;
+}
+
+.calendar-event--cancelled {
+  --fc-event-bg-color: #e4e4e7;
+  --fc-event-border-color: #a1a1aa;
+  --fc-event-text-color: #52525b;
+  opacity: 0.72;
+}
