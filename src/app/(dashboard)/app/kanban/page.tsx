@@ -2,7 +2,7 @@ import { KanbanBoard } from "@/components/kanban/kanban-board";
 import type { KanbanTask } from "@/components/kanban/task-card";
 import { requireUser } from "@/lib/auth/require-user";
 import { createServerClient } from "@/lib/supabase/server";
-import { listTasks } from "@/lib/tasks/task-queries";
+import { getTaskList } from "@/lib/tasks/task-queries";
 import {
   parseTaskRouteParams,
   type TaskRouteSearchParams,
@@ -40,12 +40,12 @@ export default async function KanbanPage({ searchParams }: KanbanPageProps) {
   const supabase = await createServerClient();
   const { filters } = parseTaskRouteParams(await searchParams);
   const projectFilters = filters.projectId ? { projectId: filters.projectId } : {};
-  const { data } = (await (listTasks(
+  const rows = await getTaskList(
     supabase as never,
     user.id,
     projectFilters,
-  ) as unknown as Promise<{ data: RawKanbanTask[] | null }>)) ?? { data: [] };
-  const tasks = (data ?? []).map(mapTask);
+  ) as RawKanbanTask[];
+  const tasks = rows.map(mapTask);
 
   return (
     <div className="space-y-6">

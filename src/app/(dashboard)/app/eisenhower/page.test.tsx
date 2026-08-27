@@ -4,16 +4,14 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   createServerClient: vi.fn(),
   getTaskList: vi.fn(),
-  refresh: vi.fn(),
   requireUser: vi.fn(),
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh }) }));
 vi.mock("@/lib/auth/require-user", () => ({ requireUser: mocks.requireUser }));
 vi.mock("@/lib/supabase/server", () => ({ createServerClient: mocks.createServerClient }));
 vi.mock("@/lib/tasks/task-queries", () => ({ getTaskList: mocks.getTaskList }));
 
-import DailyPlanPage from "./page";
+import EisenhowerPage from "./page";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -21,27 +19,24 @@ beforeEach(() => {
   mocks.createServerClient.mockResolvedValue({ from: vi.fn() });
   mocks.getTaskList.mockResolvedValue([
     {
-      id: "00000000-0000-4000-8000-000000000011",
-      title: "Gọi khách hàng",
-      status: "TODO",
-      priority: "MEDIUM",
-      start_at: null,
-      due_at: new Date().toISOString(),
-      all_day: false,
-      completed_at: null,
-      focus_date: null,
-      focus_position: null,
+      due_at: "2026-08-27T03:00:00.000Z",
+      eisenhower_override: false,
+      id: "task-a",
+      important: true,
+      priority: "HIGH",
       projects: null,
+      status: "TODO",
+      title: "Plain task",
+      urgent: false,
     },
   ]);
 });
 
 afterEach(cleanup);
 
-test("renders Focus selection controls from the Daily Plan route", async () => {
-  render(await DailyPlanPage());
+test("loads Eisenhower tasks through the shared task loader", async () => {
+  render(await EisenhowerPage());
 
-  expect(
-    screen.getAllByRole("button", { name: "Thêm Gọi khách hàng vào trọng tâm" }),
-  ).not.toHaveLength(0);
+  expect(mocks.getTaskList).toHaveBeenCalledWith(expect.anything(), "server-user-id");
+  expect(screen.getByText("Plain task")).toBeInTheDocument();
 });

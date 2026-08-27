@@ -8,7 +8,7 @@ import {
   vietnamDateKey,
 } from "@/lib/tasks/daily-plan";
 import { createServerClient } from "@/lib/supabase/server";
-import { listTasks } from "@/lib/tasks/task-queries";
+import { getTaskList } from "@/lib/tasks/task-queries";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 type RawDailyTask = {
@@ -44,12 +44,12 @@ function mapTask(task: RawDailyTask): DailyWorkspaceTask {
 export default async function DailyPlanPage() {
   const user = await requireUser();
   const supabase = await createServerClient();
-  const { data } = (await (listTasks(
+  const rows = await getTaskList(
     supabase as never,
     user.id,
-  ) as unknown as Promise<{ data: RawDailyTask[] | null }>)) ?? { data: [] };
+  ) as RawDailyTask[];
   const now = new Date();
-  const groups = groupDailyPlanTasks((data ?? []).map(mapTask), now);
+  const groups = groupDailyPlanTasks(rows.map(mapTask), now);
 
   return (
     <div className="space-y-6">

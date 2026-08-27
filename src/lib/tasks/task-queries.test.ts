@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import {
   buildListTasksQuery,
   buildSearchTasksQuery,
+  getTaskList,
   listTasks,
   type TaskQueryOperation,
 } from "./task-queries";
@@ -99,8 +100,156 @@ describe("buildListTasksQuery", () => {
     });
 
     expect(selected).toEqual([
-      "*, projects(*), recurrence_series(*), matching_task_tags:task_tags!inner(tags(*)), task_tags(tags(*)), subtasks(*), task_reminders(offset_minutes)",
+      "*, projects(*), recurrence_series:recurrence_series!tasks_recurrence_series_id_fkey(*), matching_task_tags:task_tags!inner(tags(*)), task_tags(tags(*)), subtasks(*), task_reminders(offset_minutes)",
     ]);
+  });
+
+  test("loads unfiltered tasks even when optional nested relations are absent", async () => {
+    const rows = [
+      {
+        id: "task-a",
+        user_id: "server-user-id",
+        project_id: null,
+        title: "Plain task",
+        status: "TODO",
+        priority: "MEDIUM",
+        due_at: "2026-08-27T03:00:00.000Z",
+        all_day: false,
+        recurrence_series_id: null,
+        recurrence_series: null,
+        projects: null,
+        task_tags: [],
+        subtasks: [],
+        task_reminders: [],
+      },
+      {
+        id: "task-b",
+        user_id: "server-user-id",
+        project_id: "project-1",
+        title: "Tagged task",
+        status: "IN_PROGRESS",
+        priority: "HIGH",
+        due_at: "2026-08-27T04:00:00.000Z",
+        all_day: false,
+        recurrence_series_id: null,
+        recurrence_series: null,
+        projects: { id: "project-1", name: "Project" },
+        task_tags: [
+          { tags: { id: "tag-1", name: "Tag 1" } },
+          { tags: { id: "tag-2", name: "Tag 2" } },
+        ],
+        subtasks: [],
+        task_reminders: [{ offset_minutes: 60 }],
+      },
+      {
+        id: "task-c",
+        user_id: "server-user-id",
+        project_id: null,
+        title: "Done all-day",
+        status: "DONE",
+        priority: "LOW",
+        due_at: "2026-08-27T17:00:00.000Z",
+        all_day: true,
+        recurrence_series_id: null,
+        recurrence_series: null,
+        projects: null,
+        task_tags: [],
+        subtasks: [],
+        task_reminders: [],
+      },
+      {
+        id: "task-d",
+        user_id: "server-user-id",
+        project_id: null,
+        title: "Cancelled task",
+        status: "CANCELLED",
+        priority: "URGENT",
+        due_at: "2026-08-28T03:00:00.000Z",
+        all_day: false,
+        recurrence_series_id: null,
+        recurrence_series: null,
+        projects: null,
+        task_tags: [],
+        subtasks: [],
+        task_reminders: [],
+      },
+      {
+        id: "task-e",
+        user_id: "server-user-id",
+        project_id: null,
+        title: "Recurring task",
+        status: "TODO",
+        priority: "HIGH",
+        due_at: "2026-08-29T03:00:00.000Z",
+        all_day: false,
+        recurrence_series_id: "series-1",
+        recurrence_series: {
+          id: "series-1",
+          frequency: "WEEKLY",
+          interval: 1,
+          weekdays: [1, 3, 5],
+          month_day: null,
+          ends_at: null,
+        },
+        projects: null,
+        task_tags: [],
+        subtasks: [],
+        task_reminders: [],
+      },
+    ];
+    let selectedColumns = "";
+    const builder = {
+      eq() { return builder; },
+      gte() { return builder; },
+      in() { return builder; },
+      lt() { return builder; },
+      not() { return builder; },
+      or() { return builder; },
+      order() { return builder; },
+      range() { return builder; },
+      select(columns?: string) {
+        selectedColumns = columns ?? "";
+        return builder;
+      },
+      then(resolve: (value: { data: typeof rows | null; error: Error | null }) => void) {
+        if (selectedColumns.includes("recurrence_series(*)")) {
+          resolve({
+            data: null,
+            error: new Error("Could not embed because more than one relationship was found for tasks and recurrence_series."),
+          });
+          return undefined;
+        }
+
+        resolve({ data: rows, error: null });
+        return undefined;
+      },
+    };
+    const client = { from: () => builder };
+
+    await expect(getTaskList(client, "server-user-id")).resolves.toEqual(rows);
+  });
+
+  test("throws Supabase task query errors instead of returning an empty task list", async () => {
+    const builder = {
+      eq() { return builder; },
+      gte() { return builder; },
+      in() { return builder; },
+      lt() { return builder; },
+      not() { return builder; },
+      or() { return builder; },
+      order() { return builder; },
+      range() { return builder; },
+      select() { return builder; },
+      then(resolve: (value: { data: null; error: Error }) => void) {
+        resolve({ data: null, error: new Error("permission denied for table tasks") });
+        return undefined;
+      },
+    };
+    const client = { from: () => builder };
+
+    await expect(getTaskList(client, "server-user-id")).rejects.toThrow(
+      "permission denied for table tasks",
+    );
   });
 
   test("limits the first task list page to 50 rows by default", () => {

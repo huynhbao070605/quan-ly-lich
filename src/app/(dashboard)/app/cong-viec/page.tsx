@@ -9,7 +9,7 @@ import {
 } from "@/lib/projects/project-repository";
 import { createServerClient } from "@/lib/supabase/server";
 import { listTagRecords, type TagSupabaseClient } from "@/lib/tags/tag-repository";
-import { listTasks } from "@/lib/tasks/task-queries";
+import { getTaskList } from "@/lib/tasks/task-queries";
 import type { RecurrenceFrequency } from "@/lib/recurrence/types";
 import {
   parseTaskRouteParams,
@@ -97,10 +97,8 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
   const user = await requireUser();
   const supabase = await createServerClient();
   const { filters, initialTaskId } = parseTaskRouteParams(await searchParams);
-  const [taskResult, projects, tags, settingsResult] = await Promise.all([
-    listTasks(supabase as never, user.id, filters) as unknown as Promise<{
-      data: RawTask[] | null;
-    }>,
+  const [tasks, projects, tags, settingsResult] = await Promise.all([
+    getTaskList(supabase as never, user.id, filters) as Promise<RawTask[]>,
     listProjectSummaries(
       supabase as unknown as ProjectSupabaseClient,
       user.id,
@@ -134,7 +132,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
         initialTaskId={initialTaskId}
         projects={projects.map((project) => ({ id: project.id, name: project.name }))}
         tags={tags.map((tag) => ({ id: tag.id, name: tag.name }))}
-        tasks={(taskResult.data ?? []).map(mapTask)}
+        tasks={tasks.map(mapTask)}
       />
     </div>
   );

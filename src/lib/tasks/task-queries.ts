@@ -34,6 +34,13 @@ export type TaskQueryClient<T> = {
 };
 
 export const TASK_LIST_PAGE_SIZE = 50;
+const TASK_RECURRENCE_SERIES_SELECT =
+  "recurrence_series:recurrence_series!tasks_recurrence_series_id_fkey(*)";
+
+type TaskListResponse<T> = {
+  data: T[] | null;
+  error: Error | null;
+};
 
 function addOperation(
   operations: TaskQueryOperation[],
@@ -166,11 +173,25 @@ export function listTasks<T>(
   return applyTaskQueryOperations(
     supabase
       .from("tasks")
-      .select(`*, projects(*), recurrence_series(*), ${taskTags}, subtasks(*), task_reminders(offset_minutes)`),
+      .select(`*, projects(*), ${TASK_RECURRENCE_SERIES_SELECT}, ${taskTags}, subtasks(*), task_reminders(offset_minutes)`),
     buildListTasksQuery(userId, filters),
   )
     .order("due_at", { ascending: true })
     .range(0, TASK_LIST_PAGE_SIZE - 1);
+}
+
+export async function getTaskList<T>(
+  supabase: TaskQueryClient<T>,
+  userId: string,
+  filters: TaskListFilters = {},
+): Promise<T[]> {
+  const result = await (listTasks(supabase, userId, filters) as unknown as Promise<TaskListResponse<T>>);
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  return result.data ?? [];
 }
 
 export function searchTasks<T>(
@@ -181,7 +202,7 @@ export function searchTasks<T>(
   return applyTaskQueryOperations(
     supabase
       .from("tasks")
-      .select("*, projects(*), recurrence_series(*), task_tags(tags(*)), subtasks(*), task_reminders(offset_minutes)"),
+      .select(`*, projects(*), ${TASK_RECURRENCE_SERIES_SELECT}, task_tags(tags(*)), subtasks(*), task_reminders(offset_minutes)`),
     buildSearchTasksQuery(userId, query),
   )
     .order("updated_at", { ascending: false })

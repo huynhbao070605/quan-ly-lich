@@ -2,7 +2,7 @@ import { moveCalendarTask, resizeCalendarTask } from "@/actions/calendar-actions
 import { TaskCalendar, type CalendarTask } from "@/components/calendar/task-calendar";
 import { requireUser } from "@/lib/auth/require-user";
 import { createServerClient } from "@/lib/supabase/server";
-import { listTasks } from "@/lib/tasks/task-queries";
+import { getTaskList } from "@/lib/tasks/task-queries";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 type CalendarTaskRow = {
@@ -37,11 +37,11 @@ function mapTask(row: CalendarTaskRow): CalendarTask {
 export default async function CalendarPage() {
   const user = await requireUser();
   const supabase = await createServerClient();
-  const { data } = await listTasks(
+  const rows = await getTaskList(
     supabase as never,
     user.id,
-  ) as unknown as { data: CalendarTaskRow[] | null };
-  const tasks = (data ?? []).map(mapTask);
+  ) as CalendarTaskRow[];
+  const tasks = rows.map(mapTask);
 
   async function moveTask(
     taskId: string,

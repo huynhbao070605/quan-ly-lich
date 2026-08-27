@@ -3,9 +3,9 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createServerClient: vi.fn(),
+  getTaskList: vi.fn(),
   listProjectSummaries: vi.fn(),
   listTagRecords: vi.fn(),
-  listTasks: vi.fn(),
   refresh: vi.fn(),
   requireUser: vi.fn(),
 }));
@@ -17,7 +17,7 @@ vi.mock("@/lib/auth/require-user", () => ({ requireUser: mocks.requireUser }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerClient: mocks.createServerClient,
 }));
-vi.mock("@/lib/tasks/task-queries", () => ({ listTasks: mocks.listTasks }));
+vi.mock("@/lib/tasks/task-queries", () => ({ getTaskList: mocks.getTaskList }));
 vi.mock("@/lib/projects/project-repository", () => ({
   listProjectSummaries: mocks.listProjectSummaries,
 }));
@@ -53,8 +53,8 @@ beforeEach(() => {
   mocks.createServerClient.mockResolvedValue({
     from: vi.fn((table: string) => table === "user_settings" ? settingsBuilder : undefined),
   });
-  mocks.listTasks.mockResolvedValue({
-    data: [{
+  mocks.getTaskList.mockResolvedValue([
+    {
       id: taskId,
       title: "Nộp báo cáo",
       description: null,
@@ -74,8 +74,8 @@ beforeEach(() => {
       task_tags: [{ tags: { id: tagId, name: "Gấp" } }],
       task_reminders: [{ offset_minutes: 60 }],
       subtasks: [],
-    }],
-  });
+    },
+  ]);
   mocks.listProjectSummaries.mockResolvedValue([{ id: projectId, name: "Công việc" }]);
   mocks.listTagRecords.mockResolvedValue([{ id: tagId, name: "Gấp" }]);
 });
@@ -95,7 +95,7 @@ test("applies URL filters, loads options, and opens a taskId deep link", async (
   });
   render(page);
 
-  expect(mocks.listTasks).toHaveBeenCalledWith(
+  expect(mocks.getTaskList).toHaveBeenCalledWith(
     expect.anything(),
     "server-user-id",
     {

@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth/require-user";
 import { getDashboardSummary } from "@/lib/dashboard/queries";
 import { isOverdue } from "@/lib/domain/time";
 import { formatWeekRange, groupTasksByVietnamDay, getWeekRange } from "@/lib/tasks/weekly-plan";
-import { listTasks } from "@/lib/tasks/task-queries";
+import { getTaskList } from "@/lib/tasks/task-queries";
 import { createServerClient } from "@/lib/supabase/server";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
@@ -42,11 +42,11 @@ export default async function WeeklyPlanPage() {
   const supabase = await createServerClient();
   const now = new Date();
   const week = getWeekRange(now);
-  const [{ data }, dashboard] = await Promise.all([
-    listTasks(supabase as never, user.id) as unknown as Promise<{ data: RawWeeklyTask[] | null }>,
+  const [rows, dashboard] = await Promise.all([
+    getTaskList(supabase as never, user.id) as Promise<RawWeeklyTask[]>,
     getDashboardSummary(supabase as never, user.id, now),
   ]);
-  const groups = groupTasksByVietnamDay((data ?? []).map(mapTask), week);
+  const groups = groupTasksByVietnamDay(rows.map(mapTask), week);
   const weeklyTasks = Object.values(groups).flatMap((group) => group.tasks);
   const completedCount = weeklyTasks.filter((task) => task.status === "DONE").length;
   const overdueCount = weeklyTasks.filter((task) =>
