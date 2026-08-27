@@ -1,3 +1,5 @@
+"use client";
+
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import type { DashboardStatusBreakdownItem } from "@/lib/dashboard/queries";
