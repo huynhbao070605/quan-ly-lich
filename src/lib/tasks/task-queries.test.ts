@@ -99,7 +99,7 @@ describe("buildListTasksQuery", () => {
     });
 
     expect(selected).toEqual([
-      "*, projects(*), matching_task_tags:task_tags!inner(tags(*)), task_tags(tags(*)), subtasks(*), task_reminders(offset_minutes)",
+      "*, projects(*), recurrence_series(*), matching_task_tags:task_tags!inner(tags(*)), task_tags(tags(*)), subtasks(*), task_reminders(offset_minutes)",
     ]);
   });
 

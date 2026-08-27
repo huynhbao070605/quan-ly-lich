@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
   reorderSubtasks: vi.fn(),
   resetEisenhower: vi.fn(),
+  setTaskRecurrence: vi.fn(),
   toggleSubtask: vi.fn(),
   updateTask: vi.fn(),
 }));
@@ -35,6 +36,9 @@ vi.mock("@/actions/eisenhower-actions", () => ({
   overrideEisenhower: mocks.overrideEisenhower,
   resetEisenhower: mocks.resetEisenhower,
 }));
+vi.mock("@/actions/recurrence-actions", () => ({
+  setTaskRecurrence: mocks.setTaskRecurrence,
+}));
 
 import { TasksWorkspace, type TasksWorkspaceTask } from "./tasks-workspace";
 
@@ -56,6 +60,9 @@ const task: TasksWorkspaceTask = {
   tagIds: [],
   tags: [],
   subtasks: [],
+  recurrenceRule: null,
+  recurrenceSeriesId: null,
+  occurrenceStartAt: null,
 };
 
 describe("TasksWorkspace", () => {
@@ -74,6 +81,7 @@ describe("TasksWorkspace", () => {
     mocks.toggleSubtask.mockResolvedValue(success);
     mocks.overrideEisenhower.mockResolvedValue(success);
     mocks.resetEisenhower.mockResolvedValue(success);
+    mocks.setTaskRecurrence.mockResolvedValue({ ok: true, data: null });
   });
 
   test("opens task detail from a taskId deep link and saves through updateTask", async () => {
@@ -138,6 +146,29 @@ describe("TasksWorkspace", () => {
     await user.type(screen.getByLabelText("Tên thẻ"), "Gấp");
     await user.click(screen.getByRole("button", { name: "Tạo thẻ" }));
     expect(mocks.createTag).toHaveBeenCalledWith({ name: "Gấp" });
+  });
+
+  test("creates a recurrence series after creating a recurring task", async () => {
+    const user = userEvent.setup();
+    render(
+      <TasksWorkspace initialTaskId={null} projects={[]} tags={[]} tasks={[task]} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Công việc mới" }));
+    await user.type(screen.getByLabelText("Tên công việc"), "Họp nhóm");
+    await user.type(screen.getByLabelText("Hạn chót"), "2026-08-25");
+    await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
+    await user.selectOptions(screen.getByLabelText("Lặp lại"), "DAILY");
+    await user.click(screen.getByRole("button", { name: "Tạo công việc" }));
+
+    expect(mocks.createTask).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Họp nhóm" }),
+    );
+    expect(mocks.setTaskRecurrence).toHaveBeenCalledWith(task.id, {
+      frequency: "DAILY",
+      interval: 1,
+    });
+    expect(mocks.refresh).toHaveBeenCalled();
   });
 
   test("connects checklist and delete controls to their server actions", async () => {

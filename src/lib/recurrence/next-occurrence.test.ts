@@ -63,6 +63,44 @@ describe("nextOccurrence - WEEKLY", () => {
     expect(result?.toISOString())
       .toBe("2026-08-26T10:00:00.000Z");
   });
+
+  it("uses Asia Ho Chi Minh weekdays for all-day weekly tasks", () => {
+    const rule: RecurrenceRule = {
+      frequency: "WEEKLY",
+      interval: 1,
+      weekdays: [1],
+    };
+
+    const current = new Date("2026-08-23T17:00:00.000Z");
+
+    const result = nextOccurrence(
+      rule,
+      current,
+      "Asia/Ho_Chi_Minh",
+    );
+
+    expect(result?.toISOString())
+      .toBe("2026-08-30T17:00:00.000Z");
+  });
+
+  it("supports multiple Asia Ho Chi Minh weekdays in one weekly rule", () => {
+    const rule: RecurrenceRule = {
+      frequency: "WEEKLY",
+      interval: 1,
+      weekdays: [1, 3, 5],
+    };
+
+    const current = new Date("2026-08-23T17:00:00.000Z");
+
+    const result = nextOccurrence(
+      rule,
+      current,
+      "Asia/Ho_Chi_Minh",
+    );
+
+    expect(result?.toISOString())
+      .toBe("2026-08-25T17:00:00.000Z");
+  });
 });
 
 
@@ -84,6 +122,25 @@ describe("nextOccurrence - MONTHLY", () => {
 
     expect(result?.toISOString())
       .toBe("2026-02-28T10:00:00.000Z");
+  });
+
+  it("keeps monthly recurrence on the Asia Ho Chi Minh calendar day", () => {
+    const rule: RecurrenceRule = {
+      frequency: "MONTHLY",
+      interval: 1,
+      monthDay: 31,
+    };
+
+    const current = new Date("2026-01-30T17:00:00.000Z");
+
+    const result = nextOccurrence(
+      rule,
+      current,
+      "Asia/Ho_Chi_Minh",
+    );
+
+    expect(result?.toISOString())
+      .toBe("2026-02-27T17:00:00.000Z");
   });
 });
 

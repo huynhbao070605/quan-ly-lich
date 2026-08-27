@@ -8,13 +8,20 @@ import {
   formatVietnamTimeInput,
   vietnamDateTimeToUtcIso,
 } from "@/lib/domain/time";
+import {
+  buildRecurrenceRule,
+  recurrenceFormFromRule,
+  recurrenceFrequencyOptions,
+  summarizeRecurrence,
+  type RecurrenceFormState,
+  type RecurrenceRuleInput,
+  vietnamWeekdayOptions,
+} from "@/lib/recurrence/form";
 import type { SubtaskRecord } from "@/lib/tasks/subtask-repository";
 import type { TaskPriority, TaskStatus, UpdateTaskInput } from "@/lib/validation/task";
 
 import { ReminderEditor } from "./reminder-editor";
 import { SubtaskList } from "./subtask-list";
-
-type RecurrenceValue = "NONE" | "DAILY" | "WEEKLY";
 
 type TaskDetailTask = {
   id: string;
@@ -31,6 +38,8 @@ type TaskDetailTask = {
   eisenhowerOverride: boolean;
   tagIds: string[];
   reminderOffsets: number[];
+  recurrenceSeriesId?: string | null;
+  occurrenceStartAt?: string | null;
 };
 
 type TaskDetailSheetProps = {
@@ -46,12 +55,15 @@ type TaskDetailSheetProps = {
   projects?: Array<{ id: string; name: string }>;
   tags?: Array<{ id: string; name: string }>;
   subtasks?: SubtaskRecord[];
-  recurrence?: RecurrenceValue;
+  recurrence?: RecurrenceRuleInput | null;
   onAddSubtask?: (taskId: string, title: string) => Promise<void> | void;
   onDeleteSubtask?: (subtaskId: string) => Promise<void> | void;
   onReorderSubtasks?: (taskId: string, orderedIds: string[]) => Promise<void> | void;
   onToggleSubtask?: (subtaskId: string, completed: boolean) => Promise<void> | void;
-  onRecurrenceChange?: (taskId: string, value: RecurrenceValue) => Promise<void> | void;
+  onRecurrenceChange?: (
+    taskId: string,
+    value: RecurrenceRuleInput | null,
+  ) => Promise<void> | void;
 };
 
 type TaskDetailForm = Omit<TaskDetailTask, "id">;
@@ -119,7 +131,7 @@ export function TaskDetailSheet({
   projects = [],
   tags = [],
   subtasks = [],
-  recurrence = "NONE",
+  recurrence = null,
   onAddSubtask,
   onDeleteSubtask,
   onReorderSubtasks,
@@ -128,7 +140,9 @@ export function TaskDetailSheet({
   task,
 }: TaskDetailSheetProps) {
   const [form, setForm] = useState<TaskDetailForm>(() => toForm(task));
-  const [recurrenceValue, setRecurrenceValue] = useState<RecurrenceValue>(recurrence);
+  const [recurrenceValue, setRecurrenceValue] = useState<RecurrenceFormState>(() =>
+    recurrenceFormFromRule(recurrence),
+  );
   const dialogRef = useRef<HTMLDivElement>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -188,9 +202,25 @@ export function TaskDetailSheet({
     );
   }
 
-  function changeRecurrence(value: RecurrenceValue) {
-    setRecurrenceValue(value);
-    void onRecurrenceChange?.(task.id, value);
+  function changeRecurrence(value: RecurrenceFormState["frequency"]) {
+    setRecurrenceValue((current) => ({
+      ...current,
+      frequency: value,
+      weekdays: value === "WEEKLY" ? current.weekdays : [],
+    }));
+  }
+
+  function toggleWeekday(weekday: number) {
+    setRecurrenceValue((current) => ({
+      ...current,
+      weekdays: current.weekdays.includes(weekday)
+        ? current.weekdays.filter((day) => day !== weekday)
+        : [...current.weekdays, weekday],
+    }));
+  }
+
+  function recurrenceChanged(next: RecurrenceRuleInput | null): boolean {
+    return JSON.stringify(next) !== JSON.stringify(recurrence ?? null);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -251,6 +281,12 @@ export function TaskDetailSheet({
         urgent: form.urgent,
         manual: form.eisenhowerOverride,
       });
+    }
+
+    const nextRecurrence = buildRecurrenceRule(recurrenceValue, form.startAt ?? form.dueAt);
+
+    if (onRecurrenceChange && recurrenceChanged(nextRecurrence)) {
+      await onRecurrenceChange(task.id, nextRecurrence);
     }
   }
 
@@ -354,15 +390,53 @@ export function TaskDetailSheet({
               onChange={(offsets) => updateField("reminderOffsets", offsets)}
               value={form.reminderOffsets}
             />
-            <label className="space-y-1">
-              <span className="text-sm font-medium text-slate-700">Lặp lại</span>
-              <select className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100" disabled={!onRecurrenceChange} onChange={(event) => changeRecurrence(event.target.value as RecurrenceValue)} value={recurrenceValue}>
-                <option value="NONE">Không lặp lại</option>
-                <option value="DAILY">Hằng ngày</option>
-                <option value="WEEKLY">Hằng tuần</option>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-slate-700" htmlFor="task-detail-recurrence">Lặp lại</label>
+              <select className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100" disabled={!onRecurrenceChange} id="task-detail-recurrence" onChange={(event) => changeRecurrence(event.target.value as RecurrenceFormState["frequency"])} value={recurrenceValue.frequency}>
+                {recurrenceFrequencyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
-            </label>
+              <span className="block text-xs text-slate-500">
+                {summarizeRecurrence(buildRecurrenceRule(recurrenceValue, form.startAt ?? form.dueAt))}
+              </span>
+            </div>
           </div>
+          {recurrenceValue.frequency !== "NONE" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1">
+                <span className="text-sm font-medium text-slate-700">Chu kỳ</span>
+                <input
+                  className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950"
+                  min={1}
+                  onChange={(event) =>
+                    setRecurrenceValue((current) => ({
+                      ...current,
+                      interval: Number(event.target.value) || 1,
+                    }))
+                  }
+                  type="number"
+                  value={recurrenceValue.interval}
+                />
+              </label>
+            </div>
+          ) : null}
+          {recurrenceValue.frequency === "WEEKLY" ? (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium text-slate-700">Ngày lặp trong tuần</legend>
+              <div className="flex flex-wrap gap-2">
+                {vietnamWeekdayOptions.map((weekday) => (
+                  <button
+                    aria-pressed={recurrenceValue.weekdays.includes(weekday.value)}
+                    className="h-9 min-w-10 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 aria-pressed:border-teal-600 aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
+                    key={weekday.value}
+                    onClick={() => toggleWeekday(weekday.value)}
+                    type="button"
+                  >
+                    {weekday.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium text-slate-700">Ma trận Eisenhower</legend>
             <div className="flex flex-wrap gap-3">

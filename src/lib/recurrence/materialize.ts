@@ -68,7 +68,12 @@ export type RecurrenceMaterializeRepository = {
   ): Promise<RecurringTaskRecord[]>;
   updateSeries(
     seriesId: string,
-    patch: Partial<Pick<RecurrenceSeriesRecord, "endsAt">>,
+    patch: Partial<
+      Pick<
+        RecurrenceSeriesRecord,
+        "endsAt" | "frequency" | "interval" | "monthDay" | "startsAt" | "weekdays"
+      >
+    >,
   ): Promise<RecurrenceSeriesRecord>;
   updateTask(
     taskId: string,

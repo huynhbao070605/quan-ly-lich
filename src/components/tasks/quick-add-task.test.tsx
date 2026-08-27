@@ -28,12 +28,44 @@ describe("QuickAddTask", () => {
     await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
 
     expect(screen.getByLabelText("Mô tả")).toBeVisible();
-    expect(screen.getByLabelText("Lặp lại")).toBeDisabled();
-    expect(screen.queryByRole("option", { name: "Hằng ngày" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Hằng tuần" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Lặp lại")).toBeEnabled();
+    expect(screen.getByRole("option", { name: "Không lặp" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "Hằng ngày" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "Hằng tuần" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "Hằng tháng" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "Hằng năm" })).toBeVisible();
     expect(screen.getByRole("group", { name: "Nhắc việc" })).toBeVisible();
     expect(screen.getByLabelText("1 ngày trước")).toBeChecked();
     expect(screen.getByLabelText("Đúng hạn")).toBeChecked();
+  });
+
+  test("submits weekly recurrence with multiple weekdays and preserves reminders", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    render(<QuickAddTask onCreate={onCreate} initialReminderOffsets={[1440]} />);
+
+    await user.type(screen.getByLabelText("Tên công việc"), "Tập thể thao");
+    await user.type(screen.getByLabelText("Hạn chót"), "2026-08-24");
+    await user.click(screen.getByRole("button", { name: "Thêm tùy chọn" }));
+    await user.selectOptions(screen.getByLabelText("Lặp lại"), "WEEKLY");
+    await user.click(screen.getByRole("button", { name: "T2" }));
+    await user.click(screen.getByRole("button", { name: "T4" }));
+    await user.click(screen.getByRole("button", { name: "T6" }));
+    await user.click(screen.getByLabelText("1 giờ trước"));
+    await user.click(screen.getByRole("button", { name: "Tạo công việc" }));
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Tập thể thao",
+        dueAt: "2026-08-23T17:00:00.000Z",
+        reminderOffsets: [1440, 60],
+      }),
+      {
+        frequency: "WEEKLY",
+        interval: 1,
+        weekdays: [1, 3, 5],
+      },
+    );
   });
 
   test("submits a timed deadline using Asia Ho Chi Minh semantics", async () => {

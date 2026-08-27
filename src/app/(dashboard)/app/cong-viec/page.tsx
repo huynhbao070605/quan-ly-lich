@@ -10,6 +10,7 @@ import {
 import { createServerClient } from "@/lib/supabase/server";
 import { listTagRecords, type TagSupabaseClient } from "@/lib/tags/tag-repository";
 import { listTasks } from "@/lib/tasks/task-queries";
+import type { RecurrenceFrequency } from "@/lib/recurrence/types";
 import {
   parseTaskRouteParams,
   type TaskRouteSearchParams,
@@ -29,6 +30,15 @@ type RawTask = {
   important: boolean;
   urgent: boolean;
   eisenhower_override: boolean;
+  recurrence_series_id: string | null;
+  occurrence_start_at: string | null;
+  recurrence_series: {
+    frequency: RecurrenceFrequency;
+    interval: number;
+    weekdays: number[] | null;
+    month_day: number | null;
+    ends_at: string | null;
+  } | null;
   projects: { id: string; name: string } | null;
   task_tags?: Array<{ tags: { id: string; name: string } | null }>;
   task_reminders?: Array<{ offset_minutes: number }>;
@@ -66,6 +76,17 @@ function mapTask(task: RawTask): TasksWorkspaceTask {
     reminderOffsets: [...new Set(
       (task.task_reminders ?? []).map((reminder) => reminder.offset_minutes),
     )].toSorted((a, b) => b - a),
+    recurrenceRule: task.recurrence_series
+      ? {
+          frequency: task.recurrence_series.frequency,
+          interval: task.recurrence_series.interval,
+          weekdays: task.recurrence_series.weekdays ?? undefined,
+          monthDay: task.recurrence_series.month_day,
+          endsAt: task.recurrence_series.ends_at,
+        }
+      : null,
+    recurrenceSeriesId: task.recurrence_series_id,
+    occurrenceStartAt: task.occurrence_start_at,
     tagIds: tags.map((tag) => tag.id),
     tags,
     subtasks: task.subtasks ?? [],

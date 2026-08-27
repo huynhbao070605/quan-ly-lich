@@ -150,7 +150,32 @@ describe("TaskDetailSheet", () => {
     expect(onAddSubtask).toHaveBeenCalledWith(task.id, "Kiểm tra số liệu");
   });
 
-  test("changes recurrence through its callback", async () => {
+  test("saves recurrence changes through its callback after the task update succeeds", async () => {
+    const user = userEvent.setup();
+    const onUpdate = vi.fn().mockResolvedValue(true);
+    const onRecurrenceChange = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <TaskDetailSheet
+        onClose={vi.fn()}
+        onRecurrenceChange={onRecurrenceChange}
+        onUpdate={onUpdate}
+        open
+        task={{ ...task, startAt: null }}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText("Lặp lại"), "MONTHLY");
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+
+    expect(onRecurrenceChange).toHaveBeenCalledWith(task.id, {
+      frequency: "MONTHLY",
+      interval: 1,
+      monthDay: 22,
+    });
+  });
+
+  test("saves turning recurrence off as an explicit null rule", async () => {
     const user = userEvent.setup();
     const onRecurrenceChange = vi.fn().mockResolvedValue(undefined);
 
@@ -158,15 +183,25 @@ describe("TaskDetailSheet", () => {
       <TaskDetailSheet
         onClose={vi.fn()}
         onRecurrenceChange={onRecurrenceChange}
-        onUpdate={vi.fn()}
+        onUpdate={vi.fn().mockResolvedValue(true)}
         open
-        task={task}
+        recurrence={{
+          frequency: "WEEKLY",
+          interval: 1,
+          weekdays: [2],
+        }}
+        task={{
+          ...task,
+          recurrenceSeriesId: "00000000-0000-4000-8000-000000000099",
+          occurrenceStartAt: task.startAt,
+        }}
       />,
     );
 
-    await user.selectOptions(screen.getByLabelText("Lặp lại"), "WEEKLY");
+    await user.selectOptions(screen.getByLabelText("Lặp lại"), "NONE");
+    await user.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
 
-    expect(onRecurrenceChange).toHaveBeenCalledWith(task.id, "WEEKLY");
+    expect(onRecurrenceChange).toHaveBeenCalledWith(task.id, null);
   });
 
   test("sends manual Eisenhower changes through the dedicated callback", async () => {

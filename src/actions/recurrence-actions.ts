@@ -103,6 +103,7 @@ const ruleSchema = z.object({
   monthDay: z.number().int().min(1).max(31).nullable().optional(),
   endsAt: dateTimeSchema.nullable().optional(),
 });
+const recurrenceChangeSchema = ruleSchema.nullable();
 const patchSchema = z.object({
   description: z.string().nullable().optional(),
   dueAt: dateTimeSchema.nullable().optional(),
@@ -405,9 +406,7 @@ function createRepository(
     async updateSeries(seriesId, patch) {
       const result = await supabase
         .from("recurrence_series")
-        .update({
-          ends_at: patch.endsAt,
-        })
+        .update(toSeriesRow(patch))
         .eq("user_id", userId)
         .eq("id", seriesId)
         .select("*")
@@ -445,6 +444,35 @@ function revalidateRecurrenceViews() {
   revalidatePath("/app/cong-viec");
 }
 
+function recurrenceAnchor(task: RecurringTaskRecord): string {
+  const anchor = task.occurrenceStartAt ?? task.startAt ?? task.dueAt;
+
+  if (anchor === null) {
+    throw new Error("Recurring task requires a start or due time.");
+  }
+
+  return anchor;
+}
+
+function isoMinusOneMillisecond(value: string): string {
+  return new Date(new Date(value).getTime() - 1).toISOString();
+}
+
+function toSeriesRow(
+  input: Partial<RecurrenceSeriesRecord>,
+): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+
+  if (input.frequency !== undefined) row.frequency = input.frequency;
+  if (input.interval !== undefined) row.interval = input.interval;
+  if (input.weekdays !== undefined) row.weekdays = input.weekdays;
+  if (input.monthDay !== undefined) row.month_day = input.monthDay;
+  if (input.startsAt !== undefined) row.starts_at = input.startsAt;
+  if (input.endsAt !== undefined) row.ends_at = input.endsAt;
+
+  return row;
+}
+
 export async function createRecurrenceSeries(
   taskId: string,
   rule: unknown,
@@ -463,6 +491,76 @@ export async function createRecurrenceSeries(
       parsedTaskId.data,
       toRule(parsedRule.data),
     );
+    revalidateRecurrenceViews();
+    return { ok: true, data };
+  } catch {
+    return failure();
+  }
+}
+
+export async function setTaskRecurrence(
+  taskId: string,
+  rule: unknown,
+): Promise<RecurrenceActionResult<RecurrenceSeriesRecord | null>> {
+  const parsedTaskId = taskIdSchema.safeParse(taskId);
+  const parsedRule = recurrenceChangeSchema.safeParse(rule);
+
+  if (!parsedTaskId.success || !parsedRule.success) {
+    return invalidFailure();
+  }
+
+  try {
+    const repository = await createActionRepository();
+    const task = await repository.getTask(parsedTaskId.data);
+
+    if (task === null) {
+      return failure("Không tìm thấy công việc.");
+    }
+
+    if (parsedRule.data === null) {
+      if (task.recurrenceSeriesId !== null) {
+        await repository.updateSeries(task.recurrenceSeriesId, {
+          endsAt: task.occurrenceStartAt
+            ? isoMinusOneMillisecond(task.occurrenceStartAt)
+            : new Date().toISOString(),
+        });
+      }
+
+      await repository.updateTask(task.id, {
+        recurrenceException: false,
+        recurrenceSeriesId: null,
+        occurrenceStartAt: null,
+      });
+      revalidateRecurrenceViews();
+      return { ok: true, data: null };
+    }
+
+    const nextRule = toRule(parsedRule.data);
+
+    if (task.recurrenceSeriesId !== null) {
+      const data = await repository.updateSeries(task.recurrenceSeriesId, {
+        frequency: nextRule.frequency,
+        interval: nextRule.interval,
+        weekdays: nextRule.weekdays ?? null,
+        monthDay: nextRule.monthDay ?? null,
+        startsAt: recurrenceAnchor(task),
+        endsAt: nextRule.endsAt?.toISOString() ?? null,
+      });
+      await repository.updateTask(task.id, {
+        occurrenceStartAt: recurrenceAnchor(task),
+        recurrenceException: false,
+      });
+      await ensureNextOccurrenceDomain(repository, data.id);
+      revalidateRecurrenceViews();
+      return { ok: true, data };
+    }
+
+    const data = await createRecurrenceSeriesDomain(
+      repository,
+      parsedTaskId.data,
+      nextRule,
+    );
+    await ensureNextOccurrenceDomain(repository, data.id);
     revalidateRecurrenceViews();
     return { ok: true, data };
   } catch {

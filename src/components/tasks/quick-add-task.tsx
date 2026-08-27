@@ -4,13 +4,24 @@ import { Plus } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
 
 import { vietnamDateTimeToUtcIso } from "@/lib/domain/time";
+import {
+  buildRecurrenceRule,
+  defaultRecurrenceForm,
+  recurrenceFrequencyOptions,
+  type RecurrenceFormState,
+  type RecurrenceRuleInput,
+  vietnamWeekdayOptions,
+} from "@/lib/recurrence/form";
 import type { CreateTaskInput, TaskPriority } from "@/lib/validation/task";
 
 import { ReminderEditor } from "./reminder-editor";
 
 type QuickAddTaskProps = {
   initialReminderOffsets?: number[];
-  onCreate: (input: CreateTaskInput) => Promise<void> | void;
+  onCreate: (
+    input: CreateTaskInput,
+    recurrenceRule?: RecurrenceRuleInput | null,
+  ) => Promise<void> | void;
   projects?: Array<{ id: string; name: string }>;
 };
 
@@ -34,6 +45,8 @@ export function QuickAddTask({
   const [isComposing, setIsComposing] = useState(false);
   const [priority, setPriority] = useState<TaskPriority>("MEDIUM");
   const [projectId, setProjectId] = useState("");
+  const [recurrence, setRecurrence] =
+    useState<RecurrenceFormState>(defaultRecurrenceForm);
   const [reminderOffsets, setReminderOffsets] = useState(initialReminderOffsets);
   const [title, setTitle] = useState("");
 
@@ -52,15 +65,24 @@ export function QuickAddTask({
       return;
     }
 
-    await onCreate({
+    const dueAt = buildDueAt();
+
+    const createInput = {
       title: trimmedTitle,
       priority,
-      dueAt: buildDueAt(),
+      dueAt,
       projectId: projectId === "" ? undefined : projectId,
       description: description.trim() === "" ? undefined : description.trim(),
       allDay,
       reminderOffsets,
-    });
+    };
+    const recurrenceRule = buildRecurrenceRule(recurrence, dueAt);
+
+    if (recurrenceRule) {
+      await onCreate(createInput, recurrenceRule);
+    } else {
+      await onCreate(createInput);
+    }
     setTitle("");
   }
 
@@ -149,12 +171,66 @@ export function QuickAddTask({
             <span className="text-sm font-medium text-slate-700">Lặp lại</span>
             <select
               className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
-              disabled
-              value=""
+              onChange={(event) =>
+                setRecurrence((current) => ({
+                  ...current,
+                  frequency: event.target.value as RecurrenceFormState["frequency"],
+                  weekdays: event.target.value === "WEEKLY" ? current.weekdays : [],
+                }))
+              }
+              value={recurrence.frequency}
             >
-              <option value="">Chưa khả dụng</option>
+              {recurrenceFrequencyOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
+
+          {recurrence.frequency !== "NONE" ? (
+            <label className="space-y-1">
+              <span className="text-sm font-medium text-slate-700">Chu kỳ</span>
+              <input
+                className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm text-slate-950 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+                min={1}
+                onChange={(event) =>
+                  setRecurrence((current) => ({
+                    ...current,
+                    interval: Number(event.target.value) || 1,
+                  }))
+                }
+                type="number"
+                value={recurrence.interval}
+              />
+            </label>
+          ) : null}
+
+          {recurrence.frequency === "WEEKLY" ? (
+            <fieldset className="space-y-2 md:col-span-2">
+              <legend className="text-sm font-medium text-slate-700">Ngày lặp trong tuần</legend>
+              <div className="flex flex-wrap gap-2">
+                {vietnamWeekdayOptions.map((weekday) => (
+                  <button
+                    aria-pressed={recurrence.weekdays.includes(weekday.value)}
+                    className="h-9 min-w-10 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700 aria-pressed:border-teal-600 aria-pressed:bg-teal-50 aria-pressed:text-teal-700"
+                    key={weekday.value}
+                    onClick={() =>
+                      setRecurrence((current) => ({
+                        ...current,
+                        weekdays: current.weekdays.includes(weekday.value)
+                          ? current.weekdays.filter((day) => day !== weekday.value)
+                          : [...current.weekdays, weekday.value],
+                      }))
+                    }
+                    type="button"
+                  >
+                    {weekday.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
 
           <label className="flex items-end gap-2 pb-2">
             <input

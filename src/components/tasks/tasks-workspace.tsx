@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { overrideEisenhower, resetEisenhower } from "@/actions/eisenhower-actions";
+import { setTaskRecurrence } from "@/actions/recurrence-actions";
 import {
   addSubtask,
   deleteSubtask,
@@ -14,6 +15,7 @@ import {
 import { createTag } from "@/actions/tag-actions";
 import { createTask, deleteTask, updateTask } from "@/actions/task-actions";
 import { quadrantFromFlags } from "@/lib/tasks/eisenhower";
+import type { RecurrenceRuleInput } from "@/lib/recurrence/form";
 import type { SubtaskRecord } from "@/lib/tasks/subtask-repository";
 import type { CreateTaskInput, UpdateTaskInput } from "@/lib/validation/task";
 
@@ -42,6 +44,9 @@ export type TasksWorkspaceTask = Omit<
   reminderOffsets: number[];
   tagIds: string[];
   subtasks: SubtaskRecord[];
+  recurrenceRule: RecurrenceRuleInput | null;
+  recurrenceSeriesId: string | null;
+  occurrenceStartAt: string | null;
 };
 
 type TasksWorkspaceProps = {
@@ -98,10 +103,29 @@ export function TasksWorkspace({
     return true;
   }
 
-  async function handleCreate(input: CreateTaskInput) {
-    if (await refreshOnSuccess(createTask(input))) {
-      setShowQuickAdd(false);
+  async function handleCreate(
+    input: CreateTaskInput,
+    recurrenceRule?: RecurrenceRuleInput | null,
+  ) {
+    const result = await createTask(input);
+
+    if (!result.ok) {
+      setError(result.message);
+      return;
     }
+
+    if (recurrenceRule) {
+      const recurrenceResult = await setTaskRecurrence(result.data.id, recurrenceRule);
+
+      if (!recurrenceResult.ok) {
+        setError(recurrenceResult.message);
+        return;
+      }
+    }
+
+    setError(null);
+    setShowQuickAdd(false);
+    router.refresh();
   }
 
   async function handleUpdate(taskId: string, input: UpdateTaskInput) {
@@ -213,6 +237,9 @@ export function TasksWorkspace({
               await refreshOnSuccess(resetEisenhower(taskId));
             }
           }}
+          onRecurrenceChange={async (taskId, value) => {
+            await refreshOnSuccess(setTaskRecurrence(taskId, value));
+          }}
           onReorderSubtasks={async (taskId, orderedIds) => {
             await refreshOnSuccess(reorderSubtasks(taskId, orderedIds));
           }}
@@ -222,6 +249,7 @@ export function TasksWorkspace({
           onUpdate={handleUpdate}
           open
           projects={projects}
+          recurrence={selectedTask.recurrenceRule}
           subtasks={selectedTask.subtasks}
           tags={tags}
           task={selectedTask}
