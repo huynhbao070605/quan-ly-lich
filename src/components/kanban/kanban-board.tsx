@@ -19,6 +19,10 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { moveTaskBetweenColumns, reorderColumn } from "@/actions/kanban-actions";
 import { TASK_STATUS_LABELS } from "@/lib/domain/constants";
 import { getPriorityPresentation } from "@/lib/domain/task-display";
+import {
+  getLogicalKanbanTasks,
+  getTodayLogicalTasks,
+} from "@/lib/tasks/logical-task-projection";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 import { KanbanColumn } from "./kanban-column";
@@ -64,6 +68,30 @@ function withRecomputedPositions(tasks: KanbanTask[]): KanbanTask[] {
   return tasks.map((task, index) => ({ ...task, position: index }));
 }
 
+function buildSourceKey(tasks: KanbanTask[]): string {
+  return tasks
+    .map((task) =>
+      [
+        task.id,
+        task.status,
+        task.position,
+        task.priority,
+        task.dueAt,
+        task.startAt,
+        task.recurrenceSeriesId,
+        task.occurrenceStartAt,
+      ].join(":"),
+    )
+    .join("|");
+}
+
+export function getKanbanBoardTasks(
+  tasks: KanbanTask[],
+  now: Date = new Date(),
+): KanbanTask[] {
+  return getLogicalKanbanTasks(tasks, now);
+}
+
 export function getPriorityBreakdown(tasks: KanbanTask[]) {
   return priorities.map((priority) => {
     const presentation = getPriorityPresentation(priority);
@@ -77,14 +105,28 @@ export function getPriorityBreakdown(tasks: KanbanTask[]) {
   });
 }
 
+export function getTodayPriorityBreakdown(
+  tasks: KanbanTask[],
+  now: Date = new Date(),
+) {
+  return getPriorityBreakdown(getTodayLogicalTasks(tasks, now));
+}
+
 export function KanbanBoard({ tasks }: KanbanBoardProps) {
-  const initialColumns = useMemo(() => createColumns(tasks), [tasks]);
-  const [columns, setColumns] = useState<BoardColumns>(initialColumns);
+  const boardTasks = useMemo(() => getKanbanBoardTasks(tasks), [tasks]);
+  const sourceKey = useMemo(() => buildSourceKey(boardTasks), [boardTasks]);
+  const sourceColumns = useMemo(() => createColumns(boardTasks), [boardTasks]);
+  const [optimisticColumns, setOptimisticColumns] = useState<{
+    columns: BoardColumns;
+    sourceKey: string;
+  } | null>(null);
+  const columns =
+    optimisticColumns?.sourceKey === sourceKey
+      ? optimisticColumns.columns
+      : sourceColumns;
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const priorityBreakdown = getPriorityBreakdown(
-    statuses.flatMap((status) => columns[status]),
-  );
+  const priorityBreakdown = getTodayPriorityBreakdown(tasks);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -111,7 +153,7 @@ export function KanbanBoard({ tasks }: KanbanBoardProps) {
           );
 
     if (!result.ok) {
-      setColumns(previousColumns);
+      setOptimisticColumns({ columns: previousColumns, sourceKey });
       setError("Không thể cập nhật công việc. Vui lòng thử lại.");
       return;
     }
@@ -169,7 +211,7 @@ export function KanbanBoard({ tasks }: KanbanBoardProps) {
       [targetStatus]: withRecomputedPositions(nextTargetTasks),
     };
 
-    setColumns(nextColumns);
+    setOptimisticColumns({ columns: nextColumns, sourceKey });
     startTransition(() => {
       void persistMove(previousColumns, nextColumns, task, sourceStatus, targetStatus);
     });
@@ -188,9 +230,9 @@ export function KanbanBoard({ tasks }: KanbanBoardProps) {
 
       <section className="rounded-md border border-slate-200 bg-white p-4">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-sm font-semibold text-slate-950">Phân bố ưu tiên</h2>
+          <h2 className="text-sm font-semibold text-slate-950">Ưu tiên hôm nay</h2>
           <span className="text-xs text-slate-500">
-            Theo công việc đang hiển thị
+            Theo công việc trong ngày
           </span>
         </div>
         <div className="mt-3 grid gap-4 md:grid-cols-[16rem_minmax(0,1fr)] md:items-center">

@@ -7,6 +7,7 @@ import {
   parseTaskRouteParams,
   type TaskRouteSearchParams,
 } from "@/lib/tasks/task-route-params";
+import type { RecurrenceFrequency } from "@/lib/recurrence/types";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 type RawKanbanTask = {
@@ -14,8 +15,19 @@ type RawKanbanTask = {
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
+  start_at: string | null;
   due_at: string | null;
+  all_day: boolean;
   kanban_position: number;
+  recurrence_series_id: string | null;
+  occurrence_start_at: string | null;
+  recurrence_series: {
+    frequency: RecurrenceFrequency;
+    interval: number;
+    weekdays: number[] | null;
+    month_day: number | null;
+    ends_at: string | null;
+  } | null;
   projects: { id: string; name: string } | null;
 };
 
@@ -25,9 +37,22 @@ function mapTask(task: RawKanbanTask): KanbanTask {
     title: task.title,
     status: task.status,
     priority: task.priority,
+    startAt: task.start_at,
     dueAt: task.due_at,
+    allDay: task.all_day,
     project: task.projects,
     position: task.kanban_position,
+    recurrenceRule: task.recurrence_series
+      ? {
+          frequency: task.recurrence_series.frequency,
+          interval: task.recurrence_series.interval,
+          weekdays: task.recurrence_series.weekdays ?? undefined,
+          monthDay: task.recurrence_series.month_day,
+          endsAt: task.recurrence_series.ends_at,
+        }
+      : null,
+    recurrenceSeriesId: task.recurrence_series_id,
+    occurrenceStartAt: task.occurrence_start_at,
   };
 }
 

@@ -12,16 +12,18 @@ import {
 } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, RefreshCw } from "lucide-react";
+import { GripVertical, RefreshCw, Repeat2 } from "lucide-react";
 
 import { overrideEisenhower, resetEisenhower } from "@/actions/eisenhower-actions";
 import { getPriorityPresentation, getStatusPresentation } from "@/lib/domain/task-display";
 import { formatVietnamDateTime } from "@/lib/domain/time";
+import { summarizeRecurrence, type RecurrenceRuleInput } from "@/lib/recurrence/form";
 import {
   quadrantFromFlags,
   type EisenhowerFlags,
   type EisenhowerQuadrant,
 } from "@/lib/tasks/eisenhower";
+import { getTodayLogicalTasks } from "@/lib/tasks/logical-task-projection";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 export type EisenhowerTask = {
@@ -30,10 +32,15 @@ export type EisenhowerTask = {
   status: TaskStatus;
   priority: TaskPriority;
   dueAt: string | null;
+  startAt?: string | null;
+  allDay?: boolean;
   important: boolean;
   urgent: boolean;
   eisenhowerOverride: boolean;
   project?: { id: string; name: string } | null;
+  recurrenceRule?: RecurrenceRuleInput | null;
+  recurrenceSeriesId?: string | null;
+  occurrenceStartAt?: string | null;
 };
 
 type EisenhowerBoardProps = {
@@ -97,6 +104,13 @@ function findQuadrantDefinition(id: EisenhowerQuadrant): QuadrantDefinition {
   return quadrants.find((quadrant) => quadrant.id === id) ?? quadrants[0];
 }
 
+export function getEisenhowerTodayTasks(
+  tasks: EisenhowerTask[],
+  now: Date = new Date(),
+): EisenhowerTask[] {
+  return getTodayLogicalTasks(tasks, now);
+}
+
 function TaskCard({ task }: { task: EisenhowerTask }) {
   const [isPending, startTransition] = useTransition();
   const priority = getPriorityPresentation(task.priority);
@@ -149,6 +163,12 @@ function TaskCard({ task }: { task: EisenhowerTask }) {
         {task.project ? (
           <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
             {task.project.name}
+          </span>
+        ) : null}
+        {task.recurrenceRule && task.recurrenceSeriesId ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
+            <Repeat2 aria-hidden="true" className="size-3" />
+            {summarizeRecurrence(task.recurrenceRule)}
           </span>
         ) : null}
         <span
@@ -221,9 +241,10 @@ function QuadrantColumn({
 }
 
 export function EisenhowerBoard({ tasks }: EisenhowerBoardProps) {
+  const todayTasks = useMemo(() => getEisenhowerTodayTasks(tasks), [tasks]);
   const sourceKey = useMemo(
     () =>
-      tasks
+      todayTasks
         .map((task) =>
           [
             task.id,
@@ -231,12 +252,16 @@ export function EisenhowerBoard({ tasks }: EisenhowerBoardProps) {
             task.important,
             task.urgent,
             task.eisenhowerOverride,
+            task.dueAt,
+            task.startAt,
+            task.recurrenceSeriesId,
+            task.occurrenceStartAt,
           ].join(":"),
         )
         .join("|"),
-    [tasks],
+    [todayTasks],
   );
-  const sourceGroups = useMemo(() => createGroups(tasks), [tasks]);
+  const sourceGroups = useMemo(() => createGroups(todayTasks), [todayTasks]);
   const [optimisticGroups, setOptimisticGroups] = useState<{
     groups: QuadrantGroups;
     sourceKey: string;
@@ -247,10 +272,10 @@ export function EisenhowerBoard({ tasks }: EisenhowerBoardProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor));
-  const incompleteCount = tasks.filter(
+  const incompleteCount = todayTasks.filter(
     (task) => task.status !== "DONE" && task.status !== "CANCELLED",
   ).length;
-  const doneCount = tasks.filter((task) => task.status === "DONE").length;
+  const doneCount = todayTasks.filter((task) => task.status === "DONE").length;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;

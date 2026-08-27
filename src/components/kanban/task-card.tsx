@@ -2,10 +2,11 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { CalendarDays, GripVertical } from "lucide-react";
+import { CalendarDays, GripVertical, Repeat2 } from "lucide-react";
 
 import { getPriorityPresentation } from "@/lib/domain/task-display";
 import { formatVietnamDateTime } from "@/lib/domain/time";
+import { summarizeRecurrence, type RecurrenceRuleInput } from "@/lib/recurrence/form";
 import type { TaskPriority, TaskStatus } from "@/lib/validation/task";
 
 export type KanbanTask = {
@@ -14,8 +15,13 @@ export type KanbanTask = {
   status: TaskStatus;
   priority: TaskPriority;
   dueAt: string | null;
+  startAt?: string | null;
+  allDay?: boolean;
   project?: { id: string; name: string } | null;
   position: number;
+  recurrenceRule?: RecurrenceRuleInput | null;
+  recurrenceSeriesId?: string | null;
+  occurrenceStartAt?: string | null;
 };
 
 type TaskCardProps = {
@@ -62,6 +68,12 @@ export function TaskCard({ task }: TaskCardProps) {
         {task.project ? (
           <span className="rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">
             {task.project.name}
+          </span>
+        ) : null}
+        {task.recurrenceRule && task.recurrenceSeriesId ? (
+          <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 font-medium text-slate-600">
+            <Repeat2 aria-hidden="true" className="size-3" />
+            {summarizeRecurrence(task.recurrenceRule)}
           </span>
         ) : null}
       </div>
