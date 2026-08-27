@@ -1,16 +1,49 @@
-import { render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  createServerClient: vi.fn(),
+  redirect: vi.fn(),
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createServerClient: mocks.createServerClient,
+}));
+
+vi.mock("next/navigation", () => ({
+  redirect: mocks.redirect,
+}));
 
 import HomePage from "./page";
 
-test("renders an intentional auth loading gateway instead of a raw login placeholder", () => {
-  render(<HomePage />);
+describe("HomePage", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.redirect.mockImplementation(() => {
+      throw new Error("NEXT_REDIRECT");
+    });
+  });
 
-  expect(screen.getByRole("heading", { name: "Đang mở trang đăng nhập" })).toBeVisible();
-  expect(screen.getByText("Chuẩn bị không gian làm việc cá nhân của bạn.")).toBeVisible();
-  expect(screen.getByRole("link", { name: "Mở trang đăng nhập" })).toHaveAttribute(
-    "href",
-    "/dang-nhap",
-  );
-  expect(screen.queryByRole("link", { name: "Đăng nhập" })).not.toBeInTheDocument();
+  test("redirects unauthenticated visitors directly to the login page", async () => {
+    mocks.createServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      },
+    });
+
+    await expect(Promise.resolve().then(() => HomePage())).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mocks.redirect).toHaveBeenCalledWith("/dang-nhap");
+  });
+
+  test("redirects authenticated visitors directly to the overview page", async () => {
+    mocks.createServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: { id: "user-1" } } }),
+      },
+    });
+
+    await expect(Promise.resolve().then(() => HomePage())).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mocks.redirect).toHaveBeenCalledWith("/app/tong-quan");
+  });
 });
