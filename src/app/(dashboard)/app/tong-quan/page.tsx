@@ -1,6 +1,7 @@
 import { AlertTriangle, CalendarClock } from "lucide-react";
 
 import { ProjectProgress } from "@/components/dashboard/project-progress";
+import { StatusDistributionChart } from "@/components/dashboard/status-distribution-chart";
 import { SummaryCards } from "@/components/dashboard/summary-cards";
 import {
   getDashboardSummary,
@@ -75,21 +76,27 @@ export default async function OverviewPage() {
 
       <SummaryCards summary={summary} />
 
-      {summary.overdueCount > 0 ? (
-        <section className="rounded-lg border border-rose-200 bg-rose-50 p-4">
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 text-rose-700">
+          <AlertTriangle aria-hidden="true" className="size-5" />
+          <h2 className="text-base font-semibold">Cần chú ý</h2>
+        </div>
+        {summary.overdueCount > 0 ? (
           <div className="flex items-center gap-2 text-rose-700">
-            <AlertTriangle aria-hidden="true" className="size-5" />
-            <h2 className="text-base font-semibold">Cần chú ý</h2>
+            <p className="text-sm">
+              Bạn có {summary.overdueCount} công việc quá hạn cần xử lý.
+            </p>
           </div>
-          <p className="mt-1 text-sm text-rose-700">
-            Bạn có {summary.overdueCount} công việc quá hạn cần xử lý.
-          </p>
-        </section>
-      ) : null}
+        ) : null}
+        <TaskSummaryList
+          empty="Không có công việc quá hạn cần xử lý."
+          tasks={summary.overdueTasks}
+        />
+      </section>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-slate-950">Danh sách hôm nay</h2>
+          <h2 className="text-base font-semibold text-slate-950">Hôm nay</h2>
           <TaskSummaryList
             empty="Không có công việc đến hạn hôm nay."
             tasks={summary.todayTasks}
@@ -107,20 +114,7 @@ export default async function OverviewPage() {
 
       <ProjectProgress projects={summary.projectProgress} />
 
-      <section className="space-y-3">
-        <h2 className="text-base font-semibold text-slate-950">Theo trạng thái</h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {summary.statusBreakdown.map((item) => (
-            <article
-              className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-              key={item.status}
-            >
-              <p className="text-sm font-medium text-slate-600">{item.label}</p>
-              <p className="mt-2 text-2xl font-semibold text-slate-950">{item.count}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      <StatusDistributionChart items={summary.statusBreakdown} />
     </div>
   );
 }

@@ -54,8 +54,32 @@ describe("EisenhowerBoard", () => {
     );
 
     expect(articlesInQuadrant("Làm ngay")).toHaveLength(0);
-    expect(articlesInQuadrant("Lên lịch").length).toBeGreaterThan(0);
+    expect(articlesInQuadrant("Lên kế hoạch").length).toBeGreaterThan(0);
     expect(screen.queryByText("Thủ công")).not.toBeInTheDocument();
     expect(screen.getAllByText("Tự động").length).toBeGreaterThan(0);
+  });
+
+  test("uses action-oriented Vietnamese quadrant names and visible status summary", () => {
+    render(
+      <EisenhowerBoard
+        tasks={[
+          baseTask,
+          {
+            ...baseTask,
+            id: "00000000-0000-4000-8000-000000000011",
+            status: "DONE",
+            title: "Việc đã xong",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getAllByRole("heading", { name: "Làm ngay" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { name: "Lên kế hoạch" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { name: "Xử lý / Ủy quyền" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("heading", { name: "Có thể bỏ" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Cần làm").length).toBeGreaterThan(0);
+    expect(screen.getByText("Chưa hoàn thành")).toBeVisible();
+    expect(screen.getByText("Đã hoàn thành")).toBeVisible();
   });
 });

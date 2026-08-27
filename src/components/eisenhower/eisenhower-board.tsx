@@ -15,7 +15,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, RefreshCw } from "lucide-react";
 
 import { overrideEisenhower, resetEisenhower } from "@/actions/eisenhower-actions";
-import { TASK_PRIORITY_LABELS } from "@/lib/domain/constants";
+import { getPriorityPresentation, getStatusPresentation } from "@/lib/domain/task-display";
 import { formatVietnamDateTime } from "@/lib/domain/time";
 import {
   quadrantFromFlags,
@@ -58,20 +58,20 @@ const quadrants: QuadrantDefinition[] = [
   },
   {
     id: "SCHEDULE",
-    label: "Lên lịch",
-    hint: "Quan trọng, chưa khẩn cấp",
+    label: "Lên kế hoạch",
+    hint: "Quan trọng & chưa khẩn cấp",
     flags: { important: true, urgent: false },
   },
   {
     id: "DELEGATE",
-    label: "Ủy quyền",
-    hint: "Ô ủy quyền theo ma trận tiêu chuẩn",
+    label: "Xử lý / Ủy quyền",
+    hint: "Khẩn cấp & ít quan trọng",
     flags: { important: false, urgent: true },
   },
   {
     id: "ELIMINATE",
-    label: "Loại bỏ",
-    hint: "Ít quan trọng và chưa khẩn cấp",
+    label: "Có thể bỏ",
+    hint: "Không quan trọng & không khẩn cấp",
     flags: { important: false, urgent: false },
   },
 ];
@@ -99,6 +99,8 @@ function findQuadrantDefinition(id: EisenhowerQuadrant): QuadrantDefinition {
 
 function TaskCard({ task }: { task: EisenhowerTask }) {
   const [isPending, startTransition] = useTransition();
+  const priority = getPriorityPresentation(task.priority);
+  const status = getStatusPresentation(task.status);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({
       id: task.id,
@@ -138,8 +140,11 @@ function TaskCard({ task }: { task: EisenhowerTask }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-medium text-teal-700">
-          {TASK_PRIORITY_LABELS[task.priority]}
+        <span className={`rounded-md border px-2 py-1 text-xs font-medium ${status.badgeClassName}`}>
+          {status.label}
+        </span>
+        <span className={`rounded-md border px-2 py-1 text-xs font-medium ${priority.badgeClassName}`}>
+          {priority.label}
         </span>
         {task.project ? (
           <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
@@ -242,6 +247,10 @@ export function EisenhowerBoard({ tasks }: EisenhowerBoardProps) {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor));
+  const incompleteCount = tasks.filter(
+    (task) => task.status !== "DONE" && task.status !== "CANCELLED",
+  ).length;
+  const doneCount = tasks.filter((task) => task.status === "DONE").length;
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -301,6 +310,18 @@ export function EisenhowerBoard({ tasks }: EisenhowerBoardProps) {
           {error}
         </div>
       ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[
+          { label: "Chưa hoàn thành", value: incompleteCount },
+          { label: "Đã hoàn thành", value: doneCount },
+        ].map((item) => (
+          <article className="rounded-md border border-slate-200 bg-white p-4" key={item.label}>
+            <p className="text-sm font-medium text-slate-600">{item.label}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-950">{item.value}</p>
+          </article>
+        ))}
+      </div>
 
       <div
         aria-label="Chọn ô Eisenhower"

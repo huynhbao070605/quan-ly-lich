@@ -12,7 +12,7 @@ type SummaryCardsProps = {
 const cardStyles = [
   {
     key: "today",
-    label: "Hôm nay",
+    label: "Công việc hôm nay",
     icon: ListTodo,
     className: "border-teal-200 bg-teal-50 text-teal-700",
   },
