@@ -1,5 +1,5 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import {
   EisenhowerBoard,
@@ -18,10 +18,15 @@ const baseTask: EisenhowerTask = {
   status: "TODO",
   priority: "HIGH",
   dueAt: "2026-08-27T08:00:00.000Z",
+  startAt: null,
+  allDay: false,
   important: true,
   urgent: true,
   eisenhowerOverride: true,
   project: null,
+  recurrenceRule: null,
+  recurrenceSeriesId: null,
+  occurrenceStartAt: null,
 };
 
 function articlesInQuadrant(label: string) {
@@ -35,6 +40,11 @@ function articlesInQuadrant(label: string) {
 }
 
 describe("EisenhowerBoard", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-27T03:00:00.000Z"));
+  });
+
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
