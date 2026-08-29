@@ -1,0 +1,10 @@
+select to_regclass('public.profiles') is not null as profiles_exists;
+select to_regclass('public.tasks') is not null as tasks_exists;
+select to_regclass('public.projects') is not null as projects_exists;
+select to_regclass('public.tags') is not null as tags_exists;
+select to_regclass('public.task_tags') is not null as task_tags_exists;
+select to_regclass('public.subtasks') is not null as subtasks_exists;
+select to_regclass('public.task_reminders') is not null as reminders_exists;
+select to_regclass('public.task_recurrences') is not null as recurrences_exists;
+select to_regclass('public.notifications') is not null as notifications_exists;
+select to_regclass('public.user_settings') is not null as settings_exists;

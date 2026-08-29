@@ -1,0 +1,242 @@
+import { beforeEach, describe, expect, test, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  createServerClient: vi.fn(),
+  redirect: vi.fn((url: string) => {
+    throw new Error(`redirect:${url}`);
+  }),
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createServerClient: mocks.createServerClient,
+}));
+
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+
+import {
+  requestPasswordReset,
+  signInWithEmail,
+  signInWithGoogle,
+  signUpWithEmail,
+} from "./auth-actions";
+
+const appUrl = "https://app.example.vn";
+const callbackUrl = `${appUrl}/auth/callback`;
+const googleOAuthError = "Không thể đăng nhập bằng Google. Vui lòng thử lại sau.";
+
+function createAuthClient(overrides = {}) {
+  return {
+    signUp: vi.fn().mockResolvedValue({
+      data: { user: { id: "new-user-id" }, session: null },
+      error: null,
+    }),
+    signInWithPassword: vi.fn().mockResolvedValue({ error: null }),
+    signInWithOAuth: vi.fn().mockResolvedValue({
+      data: { url: "https://accounts.google.com/o/oauth2/auth" },
+      error: null,
+    }),
+    signOut: vi.fn().mockResolvedValue({ error: null }),
+    resetPasswordForEmail: vi.fn().mockResolvedValue({ error: null }),
+    updateUser: vi.fn().mockResolvedValue({ error: null }),
+    ...overrides,
+  };
+}
+
+function formData(values: Record<string, string>) {
+  const data = new FormData();
+
+  for (const [key, value] of Object.entries(values)) {
+    data.set(key, value);
+  }
+
+  return data;
+}
+
+describe("authentication server actions", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_APP_URL = appUrl;
+    vi.clearAllMocks();
+  });
+
+  test("returns an email-confirmation-required state when sign-up creates no session", async () => {
+    const auth = createAuthClient();
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    const result = await signUpWithEmail(
+      formData({
+        displayName: "An",
+        email: "an@example.com",
+        password: "12345678",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      status: "emailConfirmationRequired",
+      message: "Kiểm tra email của bạn. Chúng tôi đã gửi liên kết xác nhận đến email bạn vừa đăng ký.",
+    });
+    expect(auth.signUp).toHaveBeenCalledWith({
+      email: "an@example.com",
+      password: "12345678",
+      options: {
+        data: { full_name: "An" },
+        emailRedirectTo: callbackUrl,
+      },
+    });
+  });
+
+  test("redirects to the app when sign-up returns an authenticated session", async () => {
+    const auth = createAuthClient({
+      signUp: vi.fn().mockResolvedValue({
+        data: { user: { id: "new-user-id" }, session: { access_token: "token" } },
+        error: null,
+      }),
+    });
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    await expect(signUpWithEmail(
+      formData({
+        displayName: "An",
+        email: "an@example.com",
+        password: "12345678",
+      }),
+    )).rejects.toThrow("redirect:/app/tong-quan");
+  });
+
+  test("returns a Vietnamese error when sign-up is rejected", async () => {
+    const auth = createAuthClient({
+      signUp: vi.fn().mockResolvedValue({
+        data: { user: null, session: null },
+        error: new Error("signup disabled"),
+      }),
+    });
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    const result = await signUpWithEmail(
+      formData({
+        displayName: "An",
+        email: "an@example.com",
+        password: "12345678",
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Không thể đăng ký. Vui lòng thử lại sau.",
+    });
+  });
+
+  test("rejects an invalid email sign-in without calling Supabase", async () => {
+    const result = await signInWithEmail(
+      formData({ email: "sai", password: "12345678" }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Không thể đăng nhập. Vui lòng kiểm tra email và mật khẩu.",
+    });
+    expect(mocks.createServerClient).not.toHaveBeenCalled();
+  });
+
+  test("returns a Vietnamese error when email sign-in is rejected", async () => {
+    const auth = createAuthClient({
+      signInWithPassword: vi.fn().mockResolvedValue({ error: new Error("invalid") }),
+    });
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    const result = await signInWithEmail(
+      formData({ email: "an@example.com", password: "12345678" }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Không thể đăng nhập. Vui lòng kiểm tra email và mật khẩu.",
+    });
+    expect(auth.signInWithPassword).toHaveBeenCalledWith({
+      email: "an@example.com",
+      password: "12345678",
+    });
+  });
+
+  test("starts Google OAuth with the canonical callback URL", async () => {
+    const auth = createAuthClient();
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    await expect(signInWithGoogle()).rejects.toThrow(
+      "redirect:https://accounts.google.com/o/oauth2/auth",
+    );
+    expect(auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: "google",
+      options: { redirectTo: callbackUrl },
+    });
+  });
+
+  test("returns a Vietnamese Google OAuth error when app URL is missing", async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL;
+
+    const result = await signInWithGoogle();
+
+    expect(result).toEqual({ ok: false, message: googleOAuthError });
+    expect(mocks.createServerClient).not.toHaveBeenCalled();
+  });
+
+  test("returns a Vietnamese Google OAuth error when Supabase cannot create an OAuth URL", async () => {
+    const auth = createAuthClient({
+      signInWithOAuth: vi.fn().mockResolvedValue({
+        data: { url: null },
+        error: new Error("provider not configured"),
+      }),
+    });
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    const result = await signInWithGoogle();
+
+    expect(result).toEqual({ ok: false, message: googleOAuthError });
+  });
+
+  test("rejects an invalid password reset email without calling Supabase", async () => {
+    const result = await requestPasswordReset(formData({ email: "sai" }));
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Vui lòng nhập địa chỉ email hợp lệ.",
+    });
+    expect(mocks.createServerClient).not.toHaveBeenCalled();
+  });
+
+  test("sends password reset links through the recovery callback URL", async () => {
+    const auth = createAuthClient();
+    mocks.createServerClient.mockResolvedValue({ auth });
+
+    const result = await requestPasswordReset(formData({ email: "an@example.com" }));
+
+    expect(result).toEqual({
+      ok: true,
+      message: "Email đặt lại mật khẩu đã được gửi.",
+    });
+    expect(auth.resetPasswordForEmail).toHaveBeenCalledWith("an@example.com", {
+      redirectTo: `${callbackUrl}?type=recovery`,
+    });
+  });
+
+  test("updates the authenticated user's password after password recovery", async () => {
+    const auth = createAuthClient();
+    mocks.createServerClient.mockResolvedValue({ auth });
+    const authActions = await import("./auth-actions");
+    const updatePassword = (
+      authActions as unknown as {
+        updatePassword?: (formData: FormData) => Promise<{ ok: boolean; message: string }>;
+      }
+    ).updatePassword;
+
+    expect(updatePassword).toBeTypeOf("function");
+
+    const result = await updatePassword?.(formData({ password: "87654321" }));
+
+    expect(result).toEqual({
+      ok: true,
+      message: "Mật khẩu đã được cập nhật. Bạn có thể đăng nhập.",
+    });
+    expect(auth.updateUser).toHaveBeenCalledWith({ password: "87654321" });
+  });
+});
